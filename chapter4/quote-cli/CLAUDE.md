@@ -32,7 +32,7 @@ uv run mcp dev main.py   # MCP Inspector로 디버깅 (mcp[cli] 제공)
 - 데이터는 `main.py`와 같은 폴더의 `quotes.json`(`QUOTES_FILE`)이며, DB 없이 파일을 매번 읽고 쓴다. `add_quote`가 파일을 다시 쓰면 들여쓰기 형식으로 바뀌고 끝 개행이 없어지므로, 호출 후 `quotes.json` diff가 크게 보일 수 있다.
 - `.mcp.json`이 Claude Code에 `quote` 서버를 `uv run main.py`로 등록한다. 코드 변경 후에는 `/mcp`에서 서버를 재연결해야 반영된다.
 - `.claude/settings.json`에 `PreToolUse` 훅이 등록돼 있다(스크립트는 `.claude/hooks/`).
-  - `block-dangerous.sh`(`Bash`): `rm -rf` 계열을 차단한다(exit 2). 삭제가 필요하면 우회하지 말고 사용자가 `! ` 접두어로 직접 실행하게 안내한다. `jq`가 없으면 명령 JSON 전체를 검사하므로 heredoc 본문에 해당 문자열이 있어도 차단된다(문서 수정은 Edit 도구 사용).
+  - `block-dangerous.sh`(`Bash`): `rm -rf` 계열을 차단한다(exit 2). 삭제가 필요하면 우회하지 말고 사용자가 `! ` 접두어로 직접 실행하게 안내한다. `jq`가 필요하다(Git Bash에서 인식돼야 함). 없으면 명령 JSON 전체를 검사해 heredoc 본문에 해당 문자열이 있어도 과잉 차단된다. 훅 테스트는 PowerShell의 `bash`(WSL)가 아니라 Git Bash를 직접 지정해 실행한다.
   - `audit-mcp.sh`(`mcp__quote__add_quote`): 호출 내역을 `.claude/mcp-audit.log`에 기록만 한다. 이 로그는 `.gitignore` 대상이다.
   - `.claude/settings.local.json`은 개인 설정이라 커밋하지 않는다.
 
