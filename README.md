@@ -4,9 +4,18 @@
 ### 1. quote-cli
 > `chapter1/quote-cli`
 - 명언을 한 줄 출력해주는 자바 애플리케이션
-- 구현 -> 테스트코드 작성 -> README 작성
+
+#### `/code-review`
+- 코드 품질, 누락된 예외, 테스트 커버리지, 문서 일관성의 관점에서 품질을 피드백
 
 ### 2. todo-cli
 > `chapter1/todo-cli`
 - CLI로 할 일을 등록하고 옮기는 자바 애플리케이션
-- /init -> 규칙 -> 플랜 -> 구현 -> README 작성
+
+#### `에이전트 루프`
+  - `[컨텍스트 수집 -> 작업수행 -> 결과 검증]`을 반복.
+  
+#### `프롬프트 캐싱`
+```
+claude -p "todos.json 스키마를 한 줄로 설명하시오" --output-format json
+```
