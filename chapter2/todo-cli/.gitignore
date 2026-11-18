@@ -21,3 +21,6 @@ todos.json
 # OS 생성 파일
 .DS_Store
 Thumbs.db
+
+# IDE(VS Code/Eclipse Java 확장) 컴파일 출력
+bin/
