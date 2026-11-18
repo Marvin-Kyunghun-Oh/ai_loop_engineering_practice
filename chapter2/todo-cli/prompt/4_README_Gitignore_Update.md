@@ -1,0 +1,2 @@
+- todo-cli 사용법을 README.md에 작성해줘.
+- .gitignore를 현재상태로 갱신해줘.

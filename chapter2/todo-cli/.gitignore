@@ -1,0 +1,23 @@
+# Gradle 프로젝트 캐시 디렉터리
+.gradle
+
+# Gradle 빌드 출력 디렉터리
+build
+
+# Kotlin 플러그인 데이터
+.kotlin
+
+# 실행 시 생성되는 할 일 데이터 파일
+todos.json
+
+# IDE 설정
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+
+# OS 생성 파일
+.DS_Store
+Thumbs.db
