@@ -62,9 +62,24 @@
 - 주의: `jq`가 필요하다. 없으면 차단 훅이 명령 JSON 원문 전체를 검사해, 명령 본문에 해당 패턴 문자열이 들어 있기만 해도(예: 문서 작성용 heredoc) 과잉 차단된다. `jq`를 설치하니(Git Bash에서 jq 1.8.2 인식) 설명 필드에만 패턴이 있는 명령은 통과(rc=0)하고, 실제 삭제 명령은 계속 차단(rc=2)되는 것을 확인했다.
 - 테스트 시 주의: PowerShell에서 `bash`는 Git Bash가 아니라 WSL(`C:\Windows\system32\bash.exe`)이라 jq가 없는 것처럼 보인다. Git Bash를 경로로 직접 지정해 검증해야 한다.
 
+### 8. MCP Inspector로 단독 확인
+Claude Code 없이도 서버를 브라우저 UI에서 확인할 수 있다.
+
+```
+uv run mcp dev main.py
+```
+
+- 서버 카드가 `Connected`(STDIO, MCP 2025-11-25)로 뜨고, 오른쪽 Messages에 `INITIALIZE` → `NOTIFICATIONS/INITIALIZED` → `RESOURCES/LIST`·`TOOLS/LIST`·`PROMPTS/LIST`가 모두 `OK`로 찍히면 정상이다.
+- `Tools`·`Resources`·`Prompts` 탭에서 `get_random_quote`, `quote://all`, `quote_post`를 직접 호출해 볼 수 있다.
+- 상단의 "Read-only session"은 임시 서버로 띄워서 나오는 안내일 뿐이다. 서버 이름이 `uv`, 명령이 `uv run --with mcp==... mcp run main.py`로 보이는 것도 Inspector가 내부적으로 만든 값이다.
+- Inspector에서 호출한 `add_quote`는 Claude Code를 거치지 않아 `audit-mcp.sh` 감사 로그에는 남지 않는다. `quotes.json`은 실제로 바뀐다.
+- `uv run main.py`를 직접 실행하면 출력 없이 stdin을 기다리는 것이 정상이다(`Ctrl+C`로 종료). 오류가 아니다.
+- 실행 시 `quote_cli.pth: ...\src does not exist; skipping sys.path append` 경고가 뜰 수 있다. `[build-system]`이 있던 시절의 editable 설치 흔적이 `.venv`에 남은 것으로, 기능에는 영향이 없다. `uv sync --reinstall`로 정리할 수 있다.
+
 ## 실행
 
 ```
 uv sync
-uv run main.py   # 보통은 Claude Code가 .mcp.json을 통해 직접 실행한다
+uv run main.py            # 보통은 Claude Code가 .mcp.json을 통해 직접 실행한다
+uv run mcp dev main.py    # MCP Inspector로 디버깅 (브라우저 UI)
 ```
