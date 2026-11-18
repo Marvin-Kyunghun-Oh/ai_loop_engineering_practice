@@ -1,4 +1,4 @@
-# # Issue Templates
+# Issue Templates
 
 ## Bug Report Template
 
@@ -51,3 +51,5 @@
 <개선이 필요한 부분>
 
 ## 제안
+<개선 제안>
+```

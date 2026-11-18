@@ -29,5 +29,5 @@ uv run pytest tests/test_smoke.py::<test_name>  # 단일 테스트
 
 - `app/main.py` → 엔드포인트, `app/services/task_service.py` → 쿼리/비즈니스 로직, `app/models.py` → `Task`↔`Tag` 다대다, `app/schemas.py` → 요청/응답 스키마. 엔드포인트는 `app/database.py`의 `get_db` 의존성으로 세션을 받는다.
 - 테스트(`tests/conftest.py`)는 `get_db`를 `dependency_overrides`로 교체해 테스트마다 메모리 SQLite(`StaticPool`)를 사용한다. 실제 DB 파일에 의존하지 않는다.
-- 의도적으로 남겨둔 버그: `list_tasks()`의 태그 N+1 조회. 수정 방향은 `selectinload(Task.tags)` 적용(README 참고). 이 수정이 3.8 실습(이슈 → 커밋 → PR → 리뷰 → 리뷰 반영)의 작업 내용이다.
+- `list_tasks()`의 태그 N+1 조회는 PR #2에서 `selectinload(Task.tags)`로 해결했다(`tests/test_smoke.py`의 쿼리 수 테스트가 회귀를 막는다). 이 수정이 3.8 실습(이슈 → 커밋 → PR → 리뷰 → 리뷰 반영)의 작업 내용이다.
 - `.claude/skills/`에 실습용 프로젝트 스킬이 있다(예: `create-issue`).
