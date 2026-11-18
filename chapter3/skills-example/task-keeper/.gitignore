@@ -1,7 +1,19 @@
+# Python
 __pycache__/
 *.py[cod]
+.pytest_cache/
+
+# 가상환경
 .venv/
 venv/
+
+# 환경 변수
+.env
+
+# 로컬 DB (seed.py 실행 시 생성)
 *.db
-.pytest_cache/
-.DS_Store
+
+# Claude Code 로컬 설정 (스킬은 추적)
+.claude/settings.local.json
+
+# OS 생성 파일은 루트 .gitignore에서 처리 (.DS_Store 등)

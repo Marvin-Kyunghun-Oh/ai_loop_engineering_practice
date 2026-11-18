@@ -1,0 +1,1 @@
+@app\services\task_service.py 의 list_tasks()에 seletinload를 적용해 태그를 한 번에 가져오게 바꿔주세요. (프롬프트)
