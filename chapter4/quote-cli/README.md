@@ -32,8 +32,9 @@
 - 팁: 서버가 뜨는지는 stdin으로 JSON-RPC `initialize` 요청을 보내 응답을 확인하면 Claude Code 없이도 점검할 수 있다.
 
 ### 4. 동작 확인
-- **도구**: `get_random_quote` 호출 → 무작위 명언 반환 확인 (`add_quote`는 데이터 파일을 바꾸므로 호출하지 않음)
-- **리소스**: `@quote:quote://all`로 명언 7개 전체를 불러옴
+- **도구**: `get_random_quote` 호출 → 무작위 명언 반환 확인
+- **도구(쓰기)**: `add_quote`로 명언 1개를 추가 → "현재 8개입니다" 응답, `quotes.json`에 반영 확인. 이때 파일이 들여쓰기 형식의 JSON으로 다시 쓰인다(기존 한 줄 형식과 달라 diff가 커짐).
+- **리소스**: `@quote:quote://all`로 명언 전체를 불러옴 (최초 7개, 추가 후 8개)
 - **프롬프트**: `/mcp__quote__quote_post 도전` 실행 → 리소스에서 명언을 골라 세 문단 글 생성
 
 ### 5. 프롬프트 기록 (`prompt/`)
@@ -41,9 +42,24 @@
   - `1_print_random_quote.md`: 도구 호출
   - `2_read_quote_resource.md`: 리소스 멘션
   - `3_write_challenge_quote_post.md`: 프롬프트 커맨드
+  - `4_delete_build_directory.md`: 재귀 강제 삭제 요청이 훅에 차단된 기록
+  - `5_add_quote.md`: `add_quote` 도구로 명언 추가
 
 ### 6. 프로젝트 문서화
 - `/init`으로 `CLAUDE.md`를 만들고, 위 트러블슈팅에서 알게 된 점(빌드 설정 제거, mcp 2.x 개명 등)을 반영해 갱신했다.
+
+### 7. 훅 추가 (`.claude/`)
+`.claude/settings.json`에 `PreToolUse` 훅 두 개를 등록했다. 스크립트는 `.claude/hooks/`에 있다.
+
+| 훅 | 대상 | 동작 |
+|---|---|---|
+| `block-dangerous.sh` | `Bash` | `rm -rf` 계열 명령을 검사해 종료 코드 2로 차단 (fail-closed) |
+| `audit-mcp.sh` | `mcp__quote__add_quote` | 시각·도구 이름·입력값을 `.claude/mcp-audit.log`에 한 줄씩 기록 (fail-open, 차단하지 않음) |
+
+- **차단 확인**: 빌드 디렉터리 삭제 요청이 `재귀 강제 삭제(rm -rf)는 차단됩니다...` 메시지와 함께 차단됐다. 우회하지 않고 사용자가 직접 실행하도록 안내했다.
+- **감사 로그 확인**: `add_quote` 호출 후 `cat .claude/mcp-audit.log`로 호출 시각과 입력값(text, author)이 기록된 것을 확인했다. 로그 파일은 `.gitignore`에 추가해 커밋하지 않는다.
+- 훅은 종료 코드 2일 때만 도구 실행을 막는다. 그 외 오류 코드는 비차단이라, 차단 훅은 예상 못한 오류도 2로 끝나게 했다.
+- 주의: `jq`가 없으면 차단 훅이 명령 JSON 원문 전체를 검사하므로, 명령 본문에 해당 패턴 문자열이 들어 있기만 해도(예: 문서 작성용 heredoc) 차단된다. 그런 작업은 Edit 같은 파일 도구로 한다.
 
 ## 실행
 
