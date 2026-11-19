@@ -1,3 +1,6 @@
 .venv/
 __pycache__/
 .claude/mcp-audit.log
+quotes.db
+# SQLite 저널/WAL 보조 파일
+quotes.db-*

@@ -8,12 +8,16 @@
 #
 # 실행 전 준비:
 #   uv add mcp                 # MCP 파이썬 SDK 설치
-#   quotes.json 파일 준비      # 이 파일과 같은 폴더에 둡니다
+#   (DB 파일 quotes.db 는 최초 실행 때 자동 생성되며, quotes.json 은 시드 데이터로 쓰입니다)
 # =============================================================================
 
 # --- import: 자바의 import와 같은 역할 ---------------------------------------
 import argparse                          # 명령줄 옵션 파싱 (표준 라이브러리)
 import json                              # JSON 읽기/쓰기 (표준 라이브러리)
+import os                                # 환경변수 읽기 (표준 라이브러리)
+import sqlite3                           # SQLite DB (표준 라이브러리, 자바의 JDBC 비슷)
+from contextlib import closing           # 연결을 확실히 닫아 주는 도우미 (자바의 try-with-resources 비슷)
+import unicodedata                        # 문자 종류(제어 문자 등) 판별 (표준 라이브러리)
 import sys                               # stderr 출력, 종료 코드 (표준 라이브러리)
 import random                            # 무작위 선택 (표준 라이브러리)
 from pathlib import Path                 # 파일 경로 다루기 (자바의 java.nio.file.Path와 비슷)
@@ -25,26 +29,82 @@ from mcp.server.mcpserver import MCPServer   # MCP 서버를 쉽게 만들어 �
 # 해당 함수가 MCP 규격에 맞는 기능으로 외부(클로드 코드)에 노출됩니다.
 mcp = MCPServer("quote")
 
-# 명언 데이터 파일 경로
+# 데이터 저장소 경로
 # __file__ 은 "지금 실행 중인 이 파일(main.py)의 경로"입니다.
-# .parent 로 그 폴더를 구하고, / 연산자로 "quotes.json"을 이어 붙입니다.
-# → main.py와 같은 폴더에 있는 quotes.json을 가리킵니다.
+# QUOTES_DB 환경변수가 있으면 그 경로를, 없으면 main.py 옆의 quotes.db 를 씁니다.
 # (대문자 변수명은 파이썬에서 "상수"라는 관례적 표시입니다. 자바의 static final과 비슷)
+DB_FILE = Path(os.environ.get("QUOTES_DB") or Path(__file__).parent / "quotes.db")
+
+# quotes.json 은 이제 "시드(초기 데이터)"입니다. DB가 비어 있을 때 한 번만 가져오고, 파일은 지우지 않습니다.
 QUOTES_FILE = Path(__file__).parent / "quotes.json"
 
 
+def _load_seed() -> list:
+    # 시드(quotes.json)를 읽어 검증합니다. add_quote와 같은 규칙(길이·개행·제어 문자)을 적용해,
+    # 시드를 통해 검증되지 않은 값이 DB와 quote://all 로 흘러가지 않게 합니다.
+    # 문제가 있으면 ValueError(JSON 문법 오류·UTF-8 오류도 ValueError의 하위 클래스)로 알립니다.
+    data = json.loads(QUOTES_FILE.read_text(encoding="utf-8"))
+    if not isinstance(data, list):
+        raise ValueError("quotes.json은 명언 객체의 배열이어야 합니다.")
+    rows = []
+    for i, q in enumerate(data, start=1):
+        if not isinstance(q, dict) or not isinstance(q.get("text"), str) or not isinstance(q.get("author"), str):
+            raise ValueError(f"quotes.json {i}번째 항목은 문자열 text, author를 가진 객체여야 합니다.")
+        rows.append((
+            validate_quote_field(f"quotes.json {i}번째 본문", q["text"], MAX_TEXT_LEN),
+            validate_quote_field(f"quotes.json {i}번째 작성자", q["author"], MAX_AUTHOR_LEN),
+        ))
+    return rows
+
+
+def _connect() -> sqlite3.Connection:
+    # 내부 헬퍼: DB 연결을 열고, 테이블이 없으면 만들고, 비어 있으면 시드를 가져옵니다.
+    # 호출한 쪽이 closing(...) 과 with 로 커밋·종료를 책임집니다.
+    # (DB_FILE 을 호출 시점에 읽으므로 테스트에서 monkeypatch 로 바꿀 수 있습니다.)
+    #
+    # 초기화는 BEGIN IMMEDIATE 로 "쓰기 락을 먼저 잡고" 비어 있는지 확인합니다.
+    # 그래야 MCP 서버와 --search 가 빈 DB에 동시에 붙어도 시드가 두 번 들어가지 않습니다
+    # (자바의 synchronized 블록 안에서 check-then-act 를 하는 것과 같은 원리).
+    # isolation_level=None 은 파이썬이 트랜잭션을 자동으로 열지 않게 해서 BEGIN/COMMIT 을 직접 다루기 위함입니다.
+    conn = sqlite3.connect(DB_FILE, timeout=10, isolation_level=None)
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS quotes ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "text TEXT NOT NULL, author TEXT NOT NULL)"
+            )
+            empty = conn.execute("SELECT COUNT(*) FROM quotes").fetchone()[0] == 0
+            if empty and QUOTES_FILE.exists():
+                # 마이그레이션: quotes.json -> DB. 값은 항상 ? 바인딩으로 넘깁니다(SQL 인젝션 방지).
+                # 주의: DB를 수동으로 전부 비우면 다음 연결 때 시드가 다시 들어옵니다.
+                conn.executemany("INSERT INTO quotes (text, author) VALUES (?, ?)", _load_seed())
+            conn.execute("COMMIT")
+        except BaseException:
+            if conn.in_transaction:
+                conn.execute("ROLLBACK")
+            raise
+        # 이후 호출부의 `with conn:` 이 평소처럼 커밋하도록 기본 모드로 되돌립니다.
+        conn.isolation_level = ""
+    except BaseException:
+        conn.close()
+        raise
+    return conn
+
+
 def load_quotes() -> list:
-    # 헬퍼 함수: quotes.json을 읽어 파이썬 리스트로 돌려줍니다.
+    # 헬퍼 함수: DB의 모든 명언을 id 순서대로 [{"text": ..., "author": ...}, ...] 로 돌려줍니다.
     # 데코레이터가 없으므로 MCP에 노출되지 않는 내부용 함수입니다.
-    # "-> list"는 반환 타입 힌트입니다 (자바의 List<...> 반환 선언과 비슷).
-    # 파일 내용 예: [{"text": "명언 내용", "author": "작가"}, ...]
-    return json.loads(QUOTES_FILE.read_text(encoding="utf-8"))
+    with closing(_connect()) as conn, conn:
+        rows = conn.execute("SELECT text, author FROM quotes ORDER BY id").fetchall()
+    return [{"text": t, "author": a} for t, a in rows]
 
 
 def search_quotes(keyword: str) -> list:
     # 헬퍼 함수: 명언 "본문(text)"에 keyword가 포함된 항목만 돌려줍니다.
     # 작성자(author)는 검색 대상이 아닙니다. 영문 대소문자는 구분하지 않습니다.
-    # 자바의 text.toLowerCase().contains(...) 와 같습니다.
+    # SQLite의 LIKE는 ASCII만 대소문자를 무시하므로, 기존 의미(casefold)를 지키려고 파이썬에서 거릅니다.
     keyword = keyword.strip().casefold()
     return [q for q in load_quotes() if keyword in q["text"].casefold()]
 
@@ -58,7 +118,10 @@ def search_quotes(keyword: str) -> list:
 @mcp.tool()
 def get_random_quote() -> str:
     """무작위 명언 한 개를 반환합니다."""
-    quote = random.choice(load_quotes())   # 리스트에서 하나를 무작위로 고름
+    quotes = load_quotes()
+    if not quotes:
+        raise ValueError("등록된 명언이 없습니다.")   # 빈 목록이면 random.choice 가 IndexError 를 내므로 미리 막음
+    quote = random.choice(quotes)          # DB에서 읽은 리스트에서 하나를 무작위로 고름
     # f'...' 는 f-string(문자열 포맷팅)입니다. { } 안의 값이 그대로 들어갑니다.
     # 자바로 치면 quote.get("text") + " - " + quote.get("author") 와 같습니다.
     return f'{quote["text"]} - {quote["author"]}'
@@ -79,27 +142,27 @@ def validate_quote_field(name: str, value: str, max_len: int) -> str:
         raise ValueError(f"{name}은(는) 1~{max_len}자여야 합니다 (현재 {len(value)}자).")
     if "\n" in value or "\r" in value:
         raise ValueError(f"{name}에는 줄바꿈을 넣을 수 없습니다.")
+    # 탭·NUL 같은 제어 문자(Cc)와 유니코드 줄/문단 구분자(Zl, Zp)도 거부합니다.
+    if any(unicodedata.category(ch) in ("Cc", "Zl", "Zp") for ch in value):
+        raise ValueError(f"{name}에는 제어 문자를 넣을 수 없습니다.")
     return value
 
 
 # 3. 명언 추가 도구 (쓰기형)
-# '2'와 같은 방식의 도구지만, 파일에 새 명언을 추가하는 "쓰기" 동작을 합니다.
+# '2'와 같은 방식의 도구지만, DB에 새 명언을 추가하는 "쓰기" 동작을 합니다.
 # 매개변수 text, author 의 타입 힌트(str)가 입력 스키마가 되므로,
 # Claude는 이 도구를 호출할 때 text와 author 두 문자열을 넘겨줍니다.
 @mcp.tool()
 def add_quote(text: str, author: str) -> str:
-    """새 명언을 명언 목록에 추가합니다. 본문은 1~300자, 작성자는 1~50자이며 줄바꿈은 허용되지 않습니다."""
+    """새 명언을 명언 목록에 추가합니다. 본문은 1~300자, 작성자는 1~50자이며 줄바꿈·제어 문자는 허용되지 않습니다."""
     text = validate_quote_field("명언 본문", text, MAX_TEXT_LEN)
     author = validate_quote_field("작성자", author, MAX_AUTHOR_LEN)
-    quotes = load_quotes()                              # 기존 목록 읽기
-    quotes.append({"text": text, "author": author})     # 새 명언을 목록 끝에 추가
-    QUOTES_FILE.write_text(                             # 파일에 다시 저장
-        # ensure_ascii=False : 한글을 \uXXXX로 바꾸지 않고 그대로 저장
-        # indent=2           : 사람이 읽기 좋게 2칸 들여쓰기
-        json.dumps(quotes, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
-    # len(quotes) 는 리스트 길이입니다 (자바의 quotes.size()).
-    return f"명언을 추가했습니다. 현재 {len(quotes)}개입니다."
+    # 연결은 함수마다 열고, with 로 커밋한 뒤 closing 으로 닫습니다.
+    # 값은 반드시 ? 바인딩으로 넘깁니다 (자바의 PreparedStatement 와 같습니다).
+    with closing(_connect()) as conn, conn:
+        conn.execute("INSERT INTO quotes (text, author) VALUES (?, ?)", (text, author))
+        count = conn.execute("SELECT COUNT(*) FROM quotes").fetchone()[0]
+    return f"명언을 추가했습니다. 현재 {count}개입니다."
 
 
 # 4. 리소스
@@ -109,7 +172,8 @@ def add_quote(text: str, author: str) -> str:
 @mcp.resource("quote://all")
 def all_quotes() -> str:
     """전체 명언 목록을 반환합니다."""
-    return QUOTES_FILE.read_text(encoding="utf-8")   # JSON 파일 내용을 문자열 그대로 반환
+    # DB 내용을 기존과 같은 JSON 문자열로 돌려줍니다 (ensure_ascii=False : 한글 그대로).
+    return json.dumps(load_quotes(), ensure_ascii=False, indent=2)
 
 
 # 5. 프롬프트
@@ -145,12 +209,12 @@ if __name__ == "__main__":
     elif not args.search.strip():
         parser.error("--search 키워드는 비어 있을 수 없습니다.")
     else:
-        # 데이터 파일 문제(없음/깨진 JSON/키 누락)는 traceback 대신 stderr 메시지와 종료 코드 1로 알립니다.
+        # 데이터 문제(DB 오류/깨진·잘못된 시드)는 traceback 대신 stderr 메시지와 종료 코드 1로 알립니다.
         try:
             results = search_quotes(args.search)
             lines = [f'{q["text"]} - {q["author"]}' for q in results]
-        except (OSError, json.JSONDecodeError, KeyError, TypeError) as e:
-            print(f"quotes.json을 읽을 수 없습니다: {type(e).__name__}: {e}", file=sys.stderr)
+        except (OSError, sqlite3.Error, ValueError, KeyError, TypeError) as e:
+            print(f"명언 데이터(quotes.db)를 읽을 수 없습니다: {type(e).__name__}: {e}", file=sys.stderr)
             sys.exit(1)
         for line in lines:
             print(line)
