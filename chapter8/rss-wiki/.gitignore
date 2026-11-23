@@ -3,3 +3,9 @@ data/
 __pycache__/
 .pytest_cache/
 *.pyc
+.DS_Store
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+.coverage
+htmlcov/
