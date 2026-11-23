@@ -1,6 +1,7 @@
 # harness/src/harness/run.py
 import argparse
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -39,6 +40,15 @@ EVALUATOR_MODEL = os.environ.get("EVALUATOR_MODEL", "opus")  # 평가 모델은 
 MAX_DECISION_TRIES = 3  # 결정 합의 재시도 상한
 
 
+def claude_executable() -> str:
+    """Windows에서 npm 설치본(claude.cmd)도 실행할 수 있도록 전체 경로를 찾는다."""
+    path = shutil.which("claude")
+    if not path:
+        print("claude CLI를 PATH에서 찾을 수 없습니다.")
+        sys.exit(1)
+    return path
+
+
 def log(message: str) -> None:
     timestamp = datetime.now().astimezone().isoformat(timespec="seconds")
     print(f"[{timestamp}] {message}", flush=True)
@@ -68,7 +78,7 @@ def bootstrap_prd() -> None:
 
     prompt_text = (PROMPTS / "planner_bootstrap.md").read_text(encoding="utf-8")
     cmd = [
-        "claude",
+        claude_executable(),
         "--allowedTools", "Read", "Glob", "Grep",
         "Edit(docs/**)", "Write(docs/**)",
         "--append-system-prompt", prompt_text,  # 5. 부트스트랩만 대화형 + 시스템 프롬프트로 역할 주입
@@ -93,7 +103,7 @@ def run_agent(name: str, prompt_file: str, allowed_tools: list[str],
     prompt_path = PROMPTS / prompt_file
     prompt_text = prompt_path.read_text(encoding="utf-8")
 
-    cmd = ["claude", "-p", prompt_text, "--allowedTools", *allowed_tools]  # 8. 사이클용 비대화형 호출
+    cmd = [claude_executable(), "-p", prompt_text, "--allowedTools", *allowed_tools]  # 8. 사이클용 비대화형 호출
     if accept_edits:
         cmd += ["--permission-mode", "acceptEdits"]
     if model:
