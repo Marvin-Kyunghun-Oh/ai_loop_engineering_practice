@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}검색 · RSS Wiki{% endblock %}
+{% block body %}
+<h1>검색</h1>
+<form action="/search" method="get"><input name="q" value="{{ q }}" size="40" aria-label="검색어"><button type="submit">검색</button></form>
+{% if q and not results %}<p class="muted">‘{{ q }}’에 대한 결과가 없습니다.</p>{% endif %}
+{% if searched_empty %}<p class="muted">검색어를 입력하세요.</p>{% endif %}
+{% for r in results %}
+<div class="card">
+  <a href="{{ r.url }}" target="_blank" rel="noopener noreferrer"><strong>{{ r.title_html|safe }}</strong></a>
+  {% if r.category_id %}<a class="badge" href="/categories/{{ r.category_id }}">{{ r.category_name }}</a>{% endif %}
+  <div>{{ r.snippet_html|safe }}</div>
+  <div class="muted">{{ r.feed_title or '' }} · {{ (r.published_at or r.fetched_at)|localtime }}</div>
+</div>
+{% endfor %}
+{% endblock %}

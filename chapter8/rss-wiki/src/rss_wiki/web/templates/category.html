@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}{{ category.name }} · RSS Wiki{% endblock %}
+{% block body %}
+<p><a href="{{ '/categories/' ~ parent.id if parent else '/' }}">← {{ parent.name if parent else '카테고리' }}</a></p>
+{% if wiki_html %}
+<article>{{ wiki_html|safe }}</article>
+<p class="muted">마지막 재구성: {{ wiki.last_rebuilt_at|localtime or '-' }}</p>
+{% else %}
+<h1>{{ category.name }}</h1>
+<p class="muted">아직 위키 페이지가 만들어지지 않았습니다.</p>
+{% endif %}
+{% if children %}
+<h2>하위 카테고리</h2>
+{% for c in children %}
+<div class="card"><a href="/categories/{{ c.id }}">{{ c.name }}</a>
+  {% if c.has_unread_updates %}<span class="badge">새 업데이트</span>{% endif %}</div>
+{% endfor %}
+{% endif %}
+<h2>원문 링크 ({{ articles|length }})</h2>
+<ul>
+{% for a in articles %}
+  <li><a href="{{ a.url }}" target="_blank" rel="noopener noreferrer">{{ a.title }}</a>
+    <span class="muted">· {{ a.feed_title or '' }} · {{ (a.published_at or a.fetched_at)|localtime }}</span>
+    {% if a.llm_summary %}<div class="muted">{{ a.llm_summary }}</div>{% endif %}</li>
+{% else %}
+  <li class="muted">글이 없습니다.</li>
+{% endfor %}
+</ul>
+{% endblock %}

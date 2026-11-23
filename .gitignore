@@ -1,7 +1,19 @@
-# IDE 설정
-.vscode/
-.idea/
-
-# OS 생성 파일
+# macOS / 에디터
 .DS_Store
 Thumbs.db
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+.coverage
+htmlcov/
+
+# Node
+node_modules/
