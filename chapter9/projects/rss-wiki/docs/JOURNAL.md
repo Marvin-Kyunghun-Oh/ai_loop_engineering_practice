@@ -1,0 +1,33 @@
+- 2026-11-23T19:58:00+09:00 planner: PRD.md 신규 작성
+- 2026-11-23T20:10:00+09:00 planner: PRD 미해결 의사결정 U1~U10을 PLAN.md로 이관하고 decisions/ 주제 10건과 planner 선택 기록, PLAN.md(M1~M6)·TASKS.md(T1 설정 로더, T2 SQLite 스키마) 신규 작성
+- 2026-11-23T20:02:23+09:00 generator: T1 완료 — config.py(Settings/load_settings)와 pytest 도입, 테스트 14개 통과
+- 2026-11-23T20:04:28+09:00 evaluator: T1 PASS 10/12 (사양3·경계3·테스트2·운영2), decisions 10건 evaluator 선택 기록
+- 2026-11-23T20:15:00+09:00 planner: 합의된 U1~U10을 PRD에 (자체 결정: 합의)로 반영하고 PLAN 미해결 섹션 비움(decisions/*.md는 권한 제한으로 삭제 못 해 남음), T1 REVIEW 메모로 T1a(설정 테스트·오류 메시지 보강) 추가, 다음 작업 T1a → T2
+- 2026-11-23T20:07:06+09:00 generator: T1a 완료 — 설정 오류 메시지에 파일 경로 포함, port 1~65535 제한, 테스트 49개 통과
+- 2026-11-23T20:08:00+09:00 evaluator: T1a PASS 11/12 (사양3·경계3·테스트3·운영2), 비UTF-8 설정 파일의 UnicodeDecodeError 미포장·`~` 미확장을 메모, decisions는 모두 합의 완료라 evaluator 선택 재기록 생략
+- 2026-11-23T20:20:00+09:00 planner: T1a PASS 반영, PRD 변경 없음(미해결 결정 없음), REVIEW 메모로 T1b(설정 파일 CP949/BOM 오류 포장·`~` 확장·테스트 공백) 추가, PLAN 현재 상태·자체 결정·M6 README 범위 갱신, 다음 작업 T1b → T2, DONE 미생성(M1~M6 미구현)
+- 2026-11-23T23:26:45+09:00 generator: T1b 완료 (UTF-8/BOM 오류 처리, ~ 확장, 테스트 55 통과)
+- 2026-11-23T23:27:31+09:00 evaluator: T1b PASS 11/12 (사양3·경계3·테스트3·운영2), 공백만 있는 경로 허용·POSIX `~user` RuntimeError 미포장·README 부재를 메모, 종결된 decisions는 evaluator 선택 재기록 생략
+- 2026-11-23T23:28:46+09:00 planner: T1b PASS 반영, PRD 변경 없음(미해결 결정 없음), T1b REVIEW 메모(공백 경로·POSIX ~user 포장·README)를 PLAN M6 범위로 이관, T2 acceptance 보강(부모 디렉터리 생성·전체 회귀·의존성 무변경), 다음 작업 T2, DONE 미생성(M1 미완, M2~M6 미구현)
+- 2026-11-23T23:29:34+09:00 generator: T2 완료 (db.py 스키마·FTS5·reset_interrupted, 테스트 72 통과)
+- 2026-11-23T23:30:31+09:00 evaluator: T2 PASS 9/12 (사양2·경계3·테스트2·운영2), 한국어 FTS(unicode61) 조사 붙은 단어 검색 실패·migrate 실패 시 롤백 없음·WAL/미래 버전 미처리·테스트 공백(FTS 연쇄 삭제, source CHECK, updated_at)을 메모
+- 2026-11-23T23:40:00+09:00 planner: T2 PASS 반영, PRD 변경 없음(미해결 결정 없음), 한국어 FTS는 스키마 유지 + 검색 계층 접두사 질의로 자체 결정, WAL·busy_timeout·updated_at 갱신 주체·미래 버전 거부·스레드별 연결 원칙을 PLAN에 기록, T2a(DB 보강)·T3(repo.py 피드·글·상태 전이) 추가, 다음 작업 T2a → T3, DONE 미생성(M1 미완, M2~M6 미구현)
+- 2026-11-23T23:33:29+09:00 generator: T2a 완료 (migrate 롤백·미래 버전 거부, WAL/busy_timeout, 테스트 7건 추가, 전체 79개 통과)
+- 2026-11-23T23:35:18+09:00 evaluator: T2a PASS 11/12 (사양3·경계3·테스트3·운영2), 롤백·미래 버전·WAL 직접 재현 확인(롤백 테스트 변이 확인 통과), migrate의 호출자 트랜잭션 암묵 커밋·except Exception·WAL 백업 안내 부재를 메모
+- 2026-11-23T23:45:00+09:00 planner: T2a PASS 반영, PRD 변경 없음(미해결 결정 없음), REVIEW 메모로 T2b(migrate 열린 트랜잭션 거부·except BaseException·테스트 사소한 보강) 추가, T3 acceptance 보강(상태 전이 3종 updated_at·두 번째 연결에서 커밋 확인), WAL 백업 안내를 PLAN M6 README 범위로 이관, 다음 작업 T2b → T3, DONE 미생성(M1 미완, M2~M6 미구현)
+
+- 2026-11-23T23:36:56+09:00 generator: T2b 완료 - migrate 열린 트랜잭션 거부, BaseException 롤백, 테스트 보강 (80 passed)
+- 2026-11-23T23:50:00+09:00 planner: PRD 변경 없음(미해결 결정 없음), T2b 구현을 코드로 확인(REVIEW는 아직 T2a 평가라 T2b 평가는 다음 evaluator에 위임), T3 acceptance 보강(80개 회귀·import 경계), T3a(태그 교체 저장·FTS 접두사 검색, 한국어·특수문자 테스트) 상세화, PLAN에 T3b(처리 대상 조회·runs)와 태그/검색 자체 결정 기록, 다음 작업 T3 → T3a, DONE 미생성(M1 미완, M2~M6 미구현)
+- 2026-11-23T23:40:31+09:00 generator: T3 완료 - repo.py 피드 CRUD·글 신규 저장·상태 전이와 테스트 (94 passed)
+- 2026-11-23T23:41:29+09:00 evaluator: T3 PASS 9/12 (사양2·경계3·테스트2·운영2), T2b 회귀 확인, add_feed가 URL NOT NULL 위반을 DuplicateFeedError로 오분류·mark_failed 없는 id에 TypeError·커밋 테스트가 add_feed 커밋 누락을 못 잡음(변이 확인)을 메모
+- 2026-11-23T23:55:00+09:00 planner: T3 PASS 반영, PRD 변경 없음(미해결 결정 없음), REVIEW 메모로 T3r(DuplicateFeedError 판정 축소·없는 id에 ArticleNotFoundError/FeedNotFoundError·mark_failed max_attempts 검증·커밋 테스트 함수별 파라미터화) 추가, 없는 id 처리 자체 결정을 PLAN에 기록, T3a에 없는 글 처리·커밋 확인 보강, 다음 작업 T3r → T3a, DONE 미생성(M1 미완, M2~M6 미구현)
+- 2026-11-23T23:44:07+09:00 generator: T3r 완료 - repo 오류 표면 정리(NotFound 예외·중복 판정 축소·max_attempts 검증)와 함수별 커밋 테스트 (106 passed)
+- 2026-11-23T23:45:28+09:00 evaluator: T3r PASS 11/12 (사양3·경계3·테스트3·운영2), 106 passed·임시 복사본 변이 11종 모두 해당 테스트가 잡음(함수별 커밋·중복 판정·NotFound·max_attempts), 새 예외의 독스트링 미기재와 NotFound 시 호출자 미커밋 작업 롤백 성질을 메모
+- 2026-11-23T23:58:00+09:00 planner: T3r PASS 반영, PRD 변경 없음(미해결 결정 없음), REVIEW 메모(예외 독스트링·트랜잭션 성질 문서화·in_transaction/LookupError 테스트)를 T3a 앞부분에 추가, "repo 쓰기 함수는 열린 트랜잭션에서 호출하지 않는다" 자체 결정 기록, T3b(처리 대상 조회·상태별 건수·실패 목록·runs 시작/종료/중단 처리) 상세화, 다음 작업 T3a → T3b, DONE 미생성(M1 미완, M2~M6 미구현)
+- 2026-11-23T23:48:33+09:00 generator: T3a 완료 - 태그 저장·FTS 접두사 검색·repo 예외 문서화 (124 passed)
+- 2026-11-23T23:50:25+09:00 evaluator: T3a PASS 11/12 (사양3·경계3·테스트2·운영3), 44/124 passed·문서화 확인 종료 코드 0·변이 15종 중 12종 잡음, 놓친 변이(따옴표 이스케이프 제거 시 a"b 입력이 OperationalError, 특수문자만→None, bm25 정렬)를 테스트 보강 메모로 넘김
+- 2026-11-23T23:52:02+09:00 planner: T3a PASS 반영, PRD 변경 없음(미해결 결정 없음), REVIEW 메모로 T3s(따옴표 이스케이프·영숫자 필터·bm25 정렬·리터럴 OR 검색 테스트, search_articles limit<1 ValueError, set_article_tags str TypeError, 변이 4종 확인) 추가, 개수·목록 인자 검증 자체 결정 기록, 다음 작업 T3s → T3b, DONE 미생성(M1 미완, M2~M6 미구현)
+- 2026-11-23T23:52:57+09:00 generator: T3s 완료 - 검색 테스트 보강·limit/names 입력 검증, 변이 4종 확인 (133 passed)
+- 2026-11-23T23:54:18+09:00 evaluator: T3s PASS 12/12 (사양3·경계3·테스트3·운영3), 53/133 passed·문서화 확인 종료 코드 0·acceptance 변이 4종+추가 변이 3종 모두 잡음, T3a 메모 해소 확인, bytes 태그 입력·T3b 검증 순서를 메모로 넘김
+- 2026-11-23T23:58:30+09:00 planner: T3s PASS 반영, PRD 변경 없음(미해결 결정 없음), REVIEW 메모로 T3b acceptance 보강(검증을 조기 반환보다 앞에, limit 0/-1·max_attempts 0 경계, 빈 DB, finish_run 음수 카운트 거부, list_failed 동률 id 내림차순, 따옴표 리터럴 검색 테스트, 변이 3종), bytes 태그 거부는 M3 tags.py 자체 결정으로 이관, 다음 작업 T3b, DONE 미생성(M1 미완, M2~M6 미구현)
+- 2026-11-23T23:58:18+09:00 generator: T3b 완료 - 처리 대상 조회·실행 이력(runs) 추가, 변이 3종 확인 (153 passed)
