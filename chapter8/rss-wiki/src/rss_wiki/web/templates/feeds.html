@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}피드 · RSS Wiki{% endblock %}
+{% block body %}
+<h1>피드 관리</h1>
+{% if error %}<p class="err">{{ error }}</p>{% endif %}
+<form action="/feeds/add" method="post">
+  <input type="url" name="url" placeholder="https://example.com/feed.xml" required size="48" aria-label="피드 URL">
+  <button type="submit">추가</button>
+</form>
+<table>
+  <thead><tr><th>ID</th><th>피드</th><th>상태</th><th>마지막 수집</th><th>연속 실패</th><th></th></tr></thead>
+  <tbody>
+  {% for f in feeds %}
+  <tr>
+    <td>{{ f.id }}</td>
+    <td>{{ f.title or '(제목 없음)' }}<br><span class="muted">{{ f.url }}</span></td>
+    <td>{{ '활성' if f.is_active else '비활성' }}</td>
+    <td>{{ f.last_fetched_at|localtime or '-' }}</td>
+    <td class="{{ 'failed' if f.consecutive_failures else '' }}">{{ f.consecutive_failures }}</td>
+    <td>
+      <form action="/feeds/{{ f.id }}/toggle" method="post" style="display:inline"><button type="submit">{{ '비활성화' if f.is_active else '활성화' }}</button></form>
+      <form action="/feeds/{{ f.id }}/delete" method="post" style="display:inline" onsubmit="return confirm('삭제하면 이 피드의 글도 함께 삭제됩니다.')"><button type="submit">삭제</button></form>
+    </td>
+  </tr>
+  {% else %}
+  <tr><td colspan="6" class="muted">구독 중인 피드가 없습니다. 위에서 RSS URL을 추가하세요.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

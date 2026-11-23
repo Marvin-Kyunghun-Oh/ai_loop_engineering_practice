@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}RSS Wiki{% endblock %}</title>
+<style>
+  body{font-family:system-ui,-apple-system,sans-serif;max-width:900px;margin:0 auto;padding:16px;line-height:1.6;color:#1f2937}
+  nav{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:24px;padding-bottom:12px;border-bottom:1px solid #e5e7eb}
+  nav form{display:inline;margin:0}
+  table{border-collapse:collapse;width:100%} th,td{border-bottom:1px solid #e5e7eb;padding:6px 8px;text-align:left;vertical-align:top}
+  .card{border:1px solid #e5e7eb;border-radius:8px;padding:12px;margin:8px 0}
+  .badge{background:#2563eb;color:#fff;border-radius:10px;padding:0 8px;font-size:.8em}
+  .err{background:#fee2e2;padding:8px 12px;border-radius:6px} .ok{background:#dcfce7;padding:8px 12px;border-radius:6px}
+  .muted{color:#6b7280} mark{background:#fde68a} .failed{color:#b91c1c}
+  button{cursor:pointer} button:disabled{cursor:progress;opacity:.6}
+  .busy{background:#dbeafe;padding:8px 12px;border-radius:6px}
+  .spin{display:inline-block;width:.9em;height:.9em;border:2px solid #2563eb;border-right-color:transparent;border-radius:50%;animation:sp 1s linear infinite;vertical-align:-2px;margin-right:6px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<nav>
+  <a href="/"><strong>RSS Wiki</strong></a>
+  <a href="/">카테고리</a>
+  <a href="/feeds">피드</a>
+  <a href="/categories/manage">카테고리 관리</a>
+  <a href="/logs">로그</a>
+  <form action="/search" method="get"><input name="q" placeholder="검색" aria-label="검색" value="{{ q|default('') }}"></form>
+  <form action="/fetch-now" method="post" id="fetch-form"><button type="submit" id="fetch-btn">Fetch now</button></form>
+</nav>
+<div id="fetch-status" role="status" aria-live="polite" hidden></div>
+{% if notice %}<p class="ok">{{ notice }}</p>{% endif %}
+{% block body %}{% endblock %}
+<script>
+/* 수집 상태 표시: 실행 중이면 "수집 중…"을 보여 주고, 끝나면 페이지를 한 번 새로고침한다. (바닐라 JS, 프레임워크 없음) */
+(function () {
+  var box = document.getElementById("fetch-status"), btn = document.getElementById("fetch-btn");
+  var KEY = "rssWikiFetch";  // sessionStorage: "pending"(내가 수집을 눌렀거나 수집 중인 걸 봤음) | "done:메시지"
+  function get() { try { return sessionStorage.getItem(KEY); } catch (e) { return null; } }
+  function set(v) { try { v === null ? sessionStorage.removeItem(KEY) : sessionStorage.setItem(KEY, v); } catch (e) {} }
+  function show(cls, html) { box.className = cls; box.innerHTML = html; box.hidden = false; }
+  function summary(st) {
+    if (st.last_error) return ["err", "수집 실패: " + st.last_error.replace(/[<>&]/g, "")];
+    var r = st.last_report;
+    if (!r) return ["ok", "수집이 끝났습니다."];
+    var t = "수집 완료: 새 글 " + r.new_articles + "개, 요약 " + r.summarized + "개, 위키 갱신 " + r.categories_rebuilt + "개";
+    var f = r.feeds_failed + r.summarize_failed + r.rebuild_failed;
+    return [f ? "err" : "ok", t + (f ? " (실패 " + f + "건 — 로그 확인)" : "")];
+  }
+  var timer = null;
+  function tick() {
+    fetch("/api/fetch/status", {cache: "no-store"}).then(function (r) { return r.json(); }).then(function (st) {
+      if (st.running) {
+        set("pending"); btn.disabled = true;
+        show("busy", '<span class="spin"></span>수집 중… 끝나면 자동으로 새로고침됩니다.');
+        timer = setTimeout(tick, 2000);
+      } else if (get() === "pending") {
+        var s = summary(st);
+        set("done:" + s[0] + "|" + s[1]);  // 새로고침 뒤에 결과를 보여 준다. 키를 먼저 바꿔 새로고침이 반복되지 않게 한다.
+        location.reload();
+      } else { btn.disabled = false; }
+    }).catch(function () { timer = setTimeout(tick, 5000); });  // 서버 일시 불가: 조용히 재시도
+  }
+  document.getElementById("fetch-form").addEventListener("submit", function () { set("pending"); });
+  var cur = get();
+  if (cur && cur.indexOf("done:") === 0) {
+    var p = cur.slice(5).split("|"); set(null);
+    show(p[0], p.slice(1).join("|"));
+    setTimeout(function () { box.hidden = true; }, 15000);
+  }
+  tick();
+})();
+</script>
+</body>
+</html>

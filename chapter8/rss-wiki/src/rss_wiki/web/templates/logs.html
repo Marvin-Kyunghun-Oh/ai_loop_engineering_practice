@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}로그 · RSS Wiki{% endblock %}
+{% block body %}
+<h1>작업 로그 <span class="muted">(최근 {{ logs|length }}건)</span></h1>
+<table>
+  <thead><tr><th>시작</th><th>작업</th><th>대상</th><th>상태</th><th>시도</th><th>오류</th></tr></thead>
+  <tbody>
+  {% for l in logs %}
+  <tr>
+    <td>{{ l.started_at|localtime }}</td><td>{{ l.job_type }}</td><td>{{ l.target_ref or '' }}</td>
+    <td class="{{ 'failed' if l.status == 'failed' else '' }}">{{ l.status }}</td>
+    <td>{{ l.attempt_count }}</td><td>{{ l.error_message or '' }}</td>
+  </tr>
+  {% else %}
+  <tr><td colspan="6" class="muted">아직 기록이 없습니다.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

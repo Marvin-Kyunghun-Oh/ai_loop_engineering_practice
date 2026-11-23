@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}카테고리 관리 · RSS Wiki{% endblock %}
+{% block body %}
+<h1>카테고리 관리</h1>
+{% if error %}<p class="err">{{ error }}</p>{% endif %}
+<p class="muted">이름 수정, 다른 카테고리로 병합, 상위 카테고리 지정(2단계까지)을 할 수 있습니다.</p>
+<table>
+  <thead><tr><th>카테고리</th><th>이름 수정</th><th>병합</th><th>상위 카테고리</th></tr></thead>
+  <tbody>
+  {% for c in categories %}
+  <tr>
+    <td><a href="/categories/{{ c.id }}">{{ c.name }}</a>{% if c.is_user_edited %} <span class="muted">(수정됨)</span>{% endif %}
+      <div class="muted">글 {{ c.article_count }}개{% if c.parent_name %} · 상위: {{ c.parent_name }}{% endif %}</div></td>
+    <td><form action="/categories/{{ c.id }}/rename" method="post">
+      <input name="name" value="{{ c.name }}" required aria-label="새 이름"><button type="submit">수정</button></form></td>
+    <td><form action="/categories/{{ c.id }}/merge" method="post" onsubmit="return confirm('병합하면 되돌릴 수 없습니다.')">
+      <select name="target_id" aria-label="병합 대상">
+        {% for t in categories if t.id != c.id %}<option value="{{ t.id }}">{{ t.name }}</option>{% endfor %}
+      </select><button type="submit">병합</button></form></td>
+    <td>{% if c.child_count %}<span class="muted">하위 {{ c.child_count }}개가 있어 지정 불가</span>{% else %}
+      <form action="/categories/{{ c.id }}/parent" method="post">
+      <select name="parent_id" aria-label="상위 카테고리">
+        <option value="">(없음)</option>
+        {% for p in roots if p.id != c.id %}<option value="{{ p.id }}" {{ 'selected' if p.id == c.parent_id }}>{{ p.name }}</option>{% endfor %}
+      </select><button type="submit">지정</button></form>{% endif %}</td>
+  </tr>
+  {% else %}
+  <tr><td colspan="4" class="muted">카테고리가 없습니다.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
