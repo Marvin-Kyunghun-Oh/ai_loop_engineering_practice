@@ -10,7 +10,7 @@ v1(`chapter9/harness`, Python)을 Java 개발자가 읽고 고칠 수 있게 다
 
 | 순서 | 문서 | 얻는 것 |
 |---|---|---|
-| 1 | 이 README | 쓰는 법, 폴더 구조, 실행 흐름 |
+| 1 | 이 README | 폴더 구조, 실행 흐름. 쓰는 법은 [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) |
 | 2 | [`docs/STATUS.md`](docs/STATUS.md) | 어디까지 했고, 무엇이 미확인·보류인지 |
 | 3 | [`docs/decisions/README.md`](docs/decisions/README.md) | 사람이 내린 결정 목록(0001~). 이유는 각 파일에 있다 |
 | 4 | [`docs/DESIGN.md`](docs/DESIGN.md) | 1절(구조도) → 4절(파일 형식) → 6절(메인 루프) 순으로 읽는다. 3절은 `harness.yml` 스키마 |
@@ -27,31 +27,25 @@ v1(`chapter9/harness`, Python)을 Java 개발자가 읽고 고칠 수 있게 다
 cd chapter9/harness-v2
 
 ./gradlew test                                   # 단위 테스트 (무료, 가짜 claude 사용)
-./gradlew run --args="../projects/<project>"     # 대상 프로젝트에서 루프 실행 (유료)
+./gradlew installDist                            # 실행 파일 만들기 (하네스 코드를 바꿨으면 실행 전에 다시)
 ```
 
-`./gradlew installDist` 후 `build/install/harness-v2/bin/harness-v2 <project>`로도 실행할 수 있다.
+루프 실행(유료)은 OS별로 다르다.
+
+| OS | 실행 명령 |
+|---|---|
+| Windows (PowerShell) | `build\install\harness-v2\bin\harness-v2.bat ..\projects\<project>` |
+| macOS / Linux | `build/install/harness-v2/bin/harness-v2 ../projects/<project>` |
+
+macOS는 코드를 읽어 문제가 없다고 판단했지만 실제로 돌려 보지는 않았다(`claude` 탐색은 PATH를 따르고 `gradlew`는 실행 권한이 보존되어 있다). 처음 돌릴 때 `./gradlew test`부터 확인한다.
+
+**실행은 터미널에서 `installDist`로 만든 실행 파일로 한다.** `./gradlew run`은 쓰지 않는다. 자식 프로세스에 터미널 입력을 연결하지 않아, PRD 없이 시작하는 Bootstrap(대화형 `claude`)이 입력 없이 실패한다. Claude Code의 `!`로 실행해도 마찬가지일 가능성이 높다. 또 DONE·HALT 같은 정상 종료 코드가 `BUILD FAILED`로 보인다.
 
 **종료 코드**: `0` = DONE 또는 최대 반복 도달, `1` = HALT, `2` = 시작 전 오류(인자, `harness.yml`, 프롬프트 템플릿, `claude` 실행 파일).
 
-### 새 프로젝트에 적용하기
-1. 프로젝트 폴더를 만들고 `harness.yml`을 둔다. 예제는 [`src/smokeTest/resources/sample-project/harness.yml`](src/smokeTest/resources/sample-project/harness.yml)이고, 키 설명은 DESIGN 3절에 있다.
-   - 테스트·빌드·의존성 추가 명령(`commands.*`)과 역할별 Bash 허용 패턴(`permissions.*`)이 프로젝트마다 다른 부분이다.
-   - 필수 키가 빠졌거나 모르는 키가 있으면 시작을 거부한다(종료 코드 2).
-2. `docs/PRD.md`를 직접 쓴다. **없으면 대화형 planner(`Bootstrap`)가 뜨고**, 대화로 PRD를 만든다. 그래도 PRD가 없으면 종료한다.
-3. 위 `run` 명령으로 실행한다. 처음에는 `limits.max_iterations`와 `max_total_usd`를 작게 시작한다.
+### 사용 가이드
 
-### 멈췄을 때
-- `docs/HALT`가 있으면 하네스는 아무것도 실행하지 않고 종료한다. 파일에 이유·상세·재개 방법이 네 줄로 적혀 있다.
-- 원인을 해결하고 **`docs/HALT`를 지운 뒤** 다시 실행한다. `.cycle_count`와 `USAGE.csv`가 남아 있어 이어서 돈다.
-- 예산 소진이면 `harness.yml`의 `limits.max_total_usd`를 올려야 재개된다(누적 비용은 `USAGE.csv`에서 복원).
-- `docs/DONE`은 planner가 "PRD와 코드의 간극이 없다"고 판단했다는 뜻이다. 매 사이클 지우고 다시 판정한다.
-
-### 비용
-- 상한 두 개: `max_total_usd`(누적), `max_agent_usd`(에이전트 1회, `--max-budget-usd`). 근거는 [0007](docs/decisions/0007-cost-limit.md).
-- 상한은 **에이전트 1회분만큼 넘칠 수 있다**(턴 사이에서만 끊기므로). 그래서 `max_total_usd`에 여유를 둔다.
-- 금액은 CLI가 보고한 API 환산값이다. Pro 크레딧 차감액과는 다를 수 있다(보정은 아직 못 했다).
-- 참고 실측: 스모크 샘플(haiku, 6회 실행) 약 $0.046.
+새 프로젝트에 적용하기(폴더·`harness.yml`·PRD 준비부터), `harness.yml` 설정값, HALT가 났을 때 재개하는 법, 완료 여부 확인, 완료 후 개선 방법은 **[사용자 가이드](docs/USER_GUIDE.md)**에 있다. 비용 상한의 근거는 [0007](docs/decisions/0007-cost-limit.md)이다.
 
 ## 폴더 설명
 

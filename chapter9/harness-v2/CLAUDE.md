@@ -5,15 +5,16 @@ v1 3-Agent 루프 하네스(`chapter9/harness`, Python)를 **Java 개발자가 �
 
 ## 먼저 읽을 것 (순서대로)
 README.md의 "1년 뒤 읽는 순서"와 같다.
-1. `README.md`: 사용법, 폴더 구조, 실행 흐름(메서드 이름 포함)
+1. `README.md`: 폴더 구조, 실행 흐름(메서드 이름 포함). 하네스를 쓰는 방법(새 프로젝트 적용, `harness.yml`, HALT 재개, 완료 확인, 개선)은 `docs/USER_GUIDE.md`에 있다
 2. `docs/STATUS.md`: 지금 어디까지 했고 다음에 무엇을 할지
-3. `docs/decisions/README.md`: 사용자와 합의한 결정 목록(0001~0014). 결정의 이유는 각 파일에 있다
+3. `docs/decisions/README.md`: 사용자와 합의한 결정 목록(0001~0016). 결정의 이유는 각 파일에 있다
 4. `docs/DESIGN.md`: v2 클래스 구조, `harness.yml` 스키마, 하네스와 프롬프트가 공유하는 파일 형식(4절), 메인 루프(6절), 테스트
 5. `docs/IMPROVEMENTS.md`: v1 결함과 v2 개선 항목(A1~D5), 우선순위(4절), 미확인 항목(6절)
 6. v1 원본(필요할 때)
    - `chapter9/harness/src/harness/run.py`: 루프, `DONE`/`HALT`, 결정 합의
    - `chapter9/harness/src/harness/prompts/*.md`: planner, generator, evaluator, planner_bootstrap 프롬프트
    - `chapter9/projects/rss-wiki/docs/`: v1 실행 기록(JOURNAL, REVIEW, TASKS)
+   - `chapter9/projects/pomodoro-todo/docs/`: v2 실행 기록(JOURNAL, USAGE.csv, REVIEW, BACKLOG, TASKS, archive/). v2로 25사이클을 돌려 `DONE`까지 간 사례
 
 ## 기술 스택
 Gradle, JDK 21, Jackson(JSON과 YAML), 설정 파일 `harness.yml`. 근거는 `docs/decisions/0003`이다.
@@ -23,6 +24,12 @@ Gradle, JDK 21, Jackson(JSON과 YAML), 설정 파일 `harness.yml`. 근거는 `d
 - `./gradlew test`: 단위 테스트. 가짜 claude를 쓰므로 무료다. 단계가 끝날 때마다 통과를 확인한다.
 - `$env:HARNESS_SMOKE = "1"; ./gradlew smokeTest`: 실제 claude로 샘플 프로젝트를 돌린다. **유료**(약 $0.05). 사용자 승인 없이 실행하지 않는다.
 - `$env:HARNESS_REAL_CLAUDE = "1"; ./gradlew test --tests harness.claude.RealClaudeCheckTest`: 실제 CLI 동작 확인. **유료**(약 $0.014). 마찬가지로 승인을 받는다.
+- 대상 프로젝트 실행(루프)은 **유료**이고 사용자가 터미널에서 직접 돌린다. 내가 돌리지 않는다.
+  - 실행은 `installDist`로 통일한다. `./gradlew installDist` 후 터미널에서 직접 실행한다. 하네스 코드를 바꿨으면 실행 전에 `installDist`를 다시 한다.
+    - Windows: `build\install\harness-v2\bin\harness-v2.bat ..\projects\<project>`
+    - macOS/Linux: `build/install/harness-v2/bin/harness-v2 ../projects/<project>` (코드를 읽어 문제없다고 판단했을 뿐 실제로 돌려 보지는 않았다)
+  - `./gradlew run`은 안내하지 않는다. 터미널 입력을 연결하지 않아 PRD 없는 Bootstrap(대화형 `claude`, TTY 필요)이 실패하고, Claude Code의 `!`도 마찬가지일 가능성이 높다. 일반 루프는 되지만 DONE·HALT 종료 코드가 `BUILD FAILED`로 보인다.
+- 실행 결과를 점검할 때는 `projects/<project>/docs/`의 JOURNAL, USAGE.csv, REVIEW, BACKLOG, TASKS와 `.harness/`를 읽고, 사이클 순서·합의 이행·역할별 책임을 본다. 점검에서 나온 수정은 `docs/STATUS.md`에 기록한다.
 
 ## 작업 규칙
 - **v1은 수정하지 않는다.** `chapter9/harness/`와 `chapter9/projects/rss-wiki/`는 기록용이다. 프롬프트도 v2로 복사한 뒤 고친다.

@@ -109,12 +109,20 @@
   - 점검 결과: 사이클 순서, 사이클 재개(0016), 마일스톤 아카이브, BACKLOG 이관, `[결함]` 승격(2건, T21·T27), `vue-tsc` 직접 실행이 모두 설계대로 동작했다. 직접 재현: vitest 14개 파일 97개 통과, `vue-tsc` 종료 코드 0. 권한 거부 0건.
   - 확인하지 못한 것: 23번 모두 PASS 또는 조건부라 FAIL → 재작업 루프는 실제 실행에서 돌지 않았다(단위 테스트로만 검증). evaluator는 브라우저가 없어 화면 점수가 코드 기준이다.
   - 작은 이탈: planner가 PLAN `## 진행` 기록을 c15·c16·c19·c21·c22에서 빼먹었다(JOURNAL에는 있어 정보 손실 없음). `docs/decisions/*.md` 7개가 지워지지 않고 남았다(planner에 Bash 없음).
-  - 제목 span은 키보드로 집중 시작이 안 된다(PRD에 요구 없음, `[보강]`으로만 남음). 다음 실험(B): PRD에 "키보드로도 집중 시작" 한 줄을 추가해 재실행하고, `DONE` 재판정과 새 항목 생성을 본다.
+  - 제목 span은 키보드로 집중 시작이 안 된다(PRD에 요구 없음, `[보강]`으로만 남음).
   - 커밋: 앱은 별도 커밋(`8b7b30a`)으로 올렸고, 하네스 수정은 `079af4f`다.
+- **B 실험 완료(c24~c25, 약 $1, 누적 약 $16.5)**: PRD P1 행에 "(개선) 키보드만으로도 집중을 시작할 수 있어야 한다(Tab으로 포커스, Enter 또는 Space로 시작)" 한 줄을 추가하고 `max_iterations: 3`으로 재실행했다. 사용자가 화면에서 키보드 동작을 확인했다.
+  - c24 planner가 `DONE`을 지우고 PRD를 다시 읽어 M6(키보드 접근성)·T32를 만들었다. generator가 `tabindex`, `role="button"`, Enter·Space 핸들러, `:focus-visible`을 넣었다(`TaskList.vue:92-96`). evaluator 조건부 11/15(preventDefault·편집 중 키 회귀 테스트 없음은 `[보강]`).
+  - c25 planner가 PRD 전체를 다시 대조해 `DONE`을 다시 만들었다. vitest 101개 통과, `vue-tsc` 종료 코드 0.
+  - 확인된 것: PRD를 고쳐 재실행하면 하네스가 간극을 찾아 일한다(planner의 "TASKS가 전부 완료여도 종료 근거가 못 된다" 규칙이 처음 동작). 요구가 없어서 안 만들어졌다는 가설도 맞았다.
+  - 한계: evaluator는 "화면은 실행하지 않고 diff로 확인"했다. 키보드 동작의 실제 확인은 사람이 했다.
+- **실행 방식 정리**: `./gradlew run`은 자식 프로세스에 터미널 입력(TTY)을 연결하지 않아 Bootstrap(대화형 `claude`)이 실패한다(지난 세션에서 원인 확인). 일반 루프(`-p`)는 되지만 DONE·HALT 종료 코드가 `BUILD FAILED`로 보인다. 그래서 실행은 `installDist`로 통일하고 README·CLAUDE.md·`Main.java` 주석을 고쳤다. Windows(`harness-v2.bat`)와 macOS/Linux(`harness-v2`) 명령을 나눠 적었다.
+  - macOS는 코드를 읽어 막힐 곳이 없다고 판단했을 뿐 실제로 돌려 보지는 않았다(`ClaudeExecutable`은 Windows가 아니면 PATH 탐색, `gradlew`는 git에 실행 권한 `100755`로 보존). `./gradlew test`가 쓰는 가짜 claude가 macOS에서도 도는지는 확인하지 못했다.
+- **사용자 가이드 작성**: [`USER_GUIDE.md`](USER_GUIDE.md)를 새로 썼다(빈 상태에서 시작, `harness.yml` 설정값, HALT 재개, 완료 확인, 완료 후 개선). README의 "새 프로젝트에 적용하기", "멈췄을 때", "비용" 절은 이 문서로 옮기고 링크만 남겼다. 가이드에서 Bootstrap과 macOS 실행은 "확인하지 못함"으로 표시했다.
 
 ## 다음 할 일 (순서대로)
 1. **Bootstrap 실제 확인**: PRD 없이 처음 실행할 때 세션이 뜨고 역할 지시(`--append-system-prompt-file`)가 적용되는지 본다. 안 되면 `--append-system-prompt <본문>`으로 바꾼다.
-2. **B 실험**: pomodoro-todo PRD에 "키보드로도 집중 시작"을 추가해 재실행한다(실제 대상 프로젝트 실행은 pomodoro-todo로 끝남).
+2. **더 복잡한 프로젝트로 실행**: FAIL → 재작업 루프(pomodoro-todo에서 한 번도 안 돌았음), 합의 불발 HALT, 외부 연동이 있는 프로젝트를 확인한다. 환경 사전 점검(`preflight`)은 필요하면 결정으로 정한다.
 3. **0007 비용 보정**: Pro 한도를 다 쓴 상태에서 하네스 합계와 비교한다.
 4. 사용자 확인이 남은 동작: 8단계의 v1과 다른 점 2가지, 9단계 구현 동작, 비용을 모르는 실행을 누적에 더하지 않는 처리(5단계 4번).
 5. 훅(0013, 0014)은 보류. 실제 프로젝트에서 위험 명령이나 허용 목록 우회가 문제가 되면 다시 판단한다.

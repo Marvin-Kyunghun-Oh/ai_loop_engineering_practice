@@ -18,7 +18,7 @@ import java.time.Clock;
  * 하네스 진입점.
  *
  * <pre>
- * ./gradlew run --args="../projects/&lt;project&gt;"
+ * build/install/harness-v2/bin/harness-v2 ../projects/&lt;project&gt;   (./gradlew installDist 후, Windows는 harness-v2.bat)
  * </pre>
  *
  * 종료 코드: 0 = DONE 또는 최대 반복 도달, 1 = HALT, 2 = 시작 전 오류(인자, harness.yml, 프롬프트, claude 실행 파일)
