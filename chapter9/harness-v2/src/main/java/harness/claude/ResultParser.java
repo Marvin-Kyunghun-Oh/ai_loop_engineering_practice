@@ -138,16 +138,20 @@ public final class ResultParser {
         return TokenUsage.ZERO;
     }
 
-    /** {@code result}의 첫 번째 내용 있는 줄. 없으면 {@code errors[0]}. 둘 다 없으면 빈 문자열. */
+    /**
+     * {@code result}의 마지막 내용 있는 줄. 없으면 {@code errors[0]}. 둘 다 없으면 빈 문자열.
+     * 프롬프트가 "마지막 출력으로 요약 한 줄"을 지시하므로 마지막 줄을 쓴다(0015).
+     * 에이전트가 앞에 "작성을 마쳤습니다" 같은 말을 붙여도 요약이 밀리지 않는다.
+     */
     private static String summarize(String result, List<String> errors) {
         if (result != null) {
-            String firstLine = result.lines()
+            String lastLine = result.lines()
                     .map(String::strip)
                     .filter(line -> !line.isEmpty())
-                    .findFirst()
+                    .reduce((previous, current) -> current)
                     .orElse("");
-            if (!firstLine.isEmpty()) {
-                return firstLine;
+            if (!lastLine.isEmpty()) {
+                return lastLine;
             }
         }
         if (!errors.isEmpty()) {

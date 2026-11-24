@@ -116,6 +116,7 @@ harness-v2/
    - `Bootstrap.run`: PRD가 없으면 대화형 planner를 띄운다.
    - `CostLedger.load`로 `USAGE.csv`에서 누적 비용을, `ProjectFiles.readCycleCount`로 이전 사이클 번호를 복원한다.
 3. **사이클 반복** — `Harness.runCycle` (`max_iterations`번까지)
+   0. 같은 번호의 사이클이 중단된 적이 있으면(`CostLedger.succeeded`가 `USAGE.csv`로 판단) 성공한 역할은 건너뛰고 이어서 한다. 아래 1~3은 planner가 아직 성공하지 않았을 때만 한다.
    1. `DONE`·`CURRENT`를 지운다. 매 사이클 planner가 다시 판정하게 하기 위해서다.
    2. `archiveClosedMilestones` → `TaskArchiver`: 끝난 마일스톤의 작업 지시를 `docs/archive/`로 옮긴다.
    3. planner 실행. `DONE`이면 종료, `HALT`면 정지, `CURRENT`가 없거나 형식이 틀리면 하네스가 HALT한다.

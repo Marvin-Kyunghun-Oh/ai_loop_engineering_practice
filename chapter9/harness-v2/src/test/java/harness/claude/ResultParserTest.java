@@ -227,10 +227,10 @@ class ResultParserTest {
     class Summary {
 
         @Test
-        @DisplayName("result가 여러 줄이면 첫 번째 내용 있는 줄만")
-        void firstNonBlankLine() {
+        @DisplayName("result가 여러 줄이면 마지막 내용 있는 줄만(0015)")
+        void lastNonBlankLine() {
             ObjectNode json = successJson();
-            json.put("result", "\n\nT7b 완료 (258 passed)\n세부 내용은 IMPL.md 참고");
+            json.put("result", "REVIEW.md 작성을 마쳤습니다. 마지막으로 요약 한 줄을 냅니다.\n\nT7b 완료 (258 passed)\n\n");
 
             assertEquals("T7b 완료 (258 passed)", parser.parse(json.toString()).summary());
         }

@@ -93,6 +93,16 @@
 
 - **문서 최신화 완료**: `README.md`를 새로 썼다(1년 뒤 읽는 순서, 사용법, 폴더 설명, 메서드 이름이 든 실행 흐름). `CLAUDE.md`에 README 순서, 명령어, 유료 실행 승인 규칙, 훅 보류를 반영했다. `DESIGN.md`의 없는 `CycleRunner`는 `Harness.runCycle()`로 고쳤다.
 
+- **pomodoro-todo 첫 실행 점검과 수정**: `max_iterations: 3`으로 3사이클을 돌렸다(9회 실행 모두 success, 약 $2.32, T10~T12 PASS). 의도대로 동작했고 두 가지를 고쳤다.
+  - JOURNAL 요약을 `result`의 마지막 줄로 바꿨다(0015, 0009 일부 대체). 앞에 군말이 붙으면 첫 줄이 요약이 되는 문제였다. `ResultParserTest` 수정, `./gradlew test` 통과.
+  - `projects/pomodoro-todo/harness.yml`의 `evaluator_bash`에 `Bash(npx vue-tsc:*)`를 추가했다. evaluator가 타입 검사를 직접 못 돌려 generator 보고를 믿던 문제다.
+  - 두 번째 실행(max_iterations 5)은 c7 generator 뒤 예산 HALT로 끝났다(누적 $5.02). 새로 드러난 결함 두 가지를 고쳤다.
+    - evaluator가 `vue-tsc`를 여전히 안 돌렸다. `evaluator.md`가 "테스트 명령만"이라고 해서였다. 빌드 명령 행을 추가했다.
+    - 재개하면 generator까지 끝난 T16이 evaluator를 받지 못한다. 성공한 역할은 건너뛰고 이어서 하도록 `Harness.runCycle`을 고쳤다(0016, `CostLedger.succeeded`). `HarnessTest` 수정·추가.
+  - 세 번째 실행(c7~c10, 누적 $7.09)에서 위 두 수정이 동작함을 확인했다(c7 evaluator 재개, `vue-tsc` 직접 실행). c10 generator 뒤 예산 HALT(누적 $7.09 + 1회 상한 $1 > $8).
+  - BACKLOG 27건이 전부 `[보강]`이라 마일스톤 마감 승격(0010)이 한 번도 동작하지 않았다. 연결 누락 같은 결함성 메모도 `[보강]`으로 분류된 사례가 있었다. `evaluator.md`의 `[결함]` 기준을 근거 요구·연결 누락 포함·REVIEW당 최대 2개로 고쳤다(0010 규칙은 그대로). 효과는 다음 실행에서 `[결함]` 건수와 점수 분포로 확인한다.
+  - 남은 관찰: planner가 Bash가 없어 `docs/decisions/*.md`를 지우지 못한다. BACKLOG 승격과 마일스톤 아카이브는 3사이클로는 확인하지 못했다.
+
 ## 다음 할 일 (순서대로)
 1. **Bootstrap 실제 확인**: PRD 없이 처음 실행할 때 세션이 뜨고 역할 지시(`--append-system-prompt-file`)가 적용되는지 본다. 안 되면 `--append-system-prompt <본문>`으로 바꾼다.
 2. **실제 대상 프로젝트 실행**: 대상 프로젝트가 정해지면(0004) 돌린다.

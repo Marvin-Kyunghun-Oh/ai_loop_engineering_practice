@@ -12,7 +12,7 @@ import java.util.List;
  * @param usage      토큰 4종. 모르면 {@link TokenUsage#ZERO}
  * @param numTurns   턴 수. 모르면 0
  * @param durationMs 실행 시간(ms). 모르면 0
- * @param summary    JOURNAL용 한 줄. {@code result}의 첫 줄, 없으면 {@code errors[0]}, 둘 다 없으면 빈 문자열.
+ * @param summary    JOURNAL용 한 줄. {@code result}의 마지막 내용 있는 줄, 없으면 {@code errors[0]}, 둘 다 없으면 빈 문자열.
  *                   200자 자르기는 JournalWriter가 한다
  * @param errors     결과 JSON의 {@code errors}. 없으면 빈 목록
  */

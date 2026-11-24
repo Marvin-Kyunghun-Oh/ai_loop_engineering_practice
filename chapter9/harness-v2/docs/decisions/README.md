@@ -16,11 +16,13 @@ harness-v2를 설계하며 사용자와 합의한 결정을 남긴다. 한 파�
 | [0006](0006-model-defaults.md) | 모델 기본값: planner만 opus | 확정 | 2026-11-24 |
 | [0007](0007-cost-limit.md) | 비용 상한: CLI 보고 비용 누적 $38 + 1회 $5 | 확정 | 2026-11-24 |
 | [0008](0008-strict-permissions.md) | 권한: 역할별 Bash 허용 목록(엄격) | 확정 | 2026-11-24 |
-| [0009](0009-harness-writes-journal.md) | JOURNAL은 하네스가 기록 | 확정 | 2026-11-24 |
+| [0009](0009-harness-writes-journal.md) | JOURNAL은 하네스가 기록 | 일부 대체됨(→ 0015) | 2026-11-24 |
 | [0010](0010-backlog-for-review-memos.md) | REVIEW 메모는 BACKLOG로, 마일스톤 끝에 최대 2개만 처리 | 확정 | 2026-11-24 |
 | [0011](0011-smoke-test.md) | 샘플 프로젝트로 실제 `claude` 스모크 테스트 | 확정 | 2026-11-24 |
 | [0012](0012-result-json-details.md) | 결과 JSON 형식 오류는 즉시 HALT, 토큰은 modelUsage 합산, 설정의 모르는 키는 거부 | 확정 | 2026-11-24 |
 | [0013](0013-defer-bash-allowlist-hook.md) | Bash 허용 목록 훅은 스모크 테스트 뒤로 미룬다 | 확정 | 2026-11-24 |
 | [0014](0014-defer-danger-hook.md) | 위험 명령 차단 훅(C2)은 스모크 테스트 뒤로 미룬다 | 확정 | 2026-11-24 |
+| [0015](0015-journal-summary-last-line.md) | JOURNAL 요약은 result의 마지막 줄을 쓴다 | 확정 | 2026-11-24 |
+| [0016](0016-resume-interrupted-cycle.md) | 중단된 사이클은 성공한 역할을 건너뛰고 이어서 한다 | 확정 | 2026-11-24 |
 
 상세한 근거와 구현 메모는 [`../IMPROVEMENTS.md`](../IMPROVEMENTS.md)에 있다.

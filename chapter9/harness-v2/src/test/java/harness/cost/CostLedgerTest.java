@@ -121,4 +121,21 @@ class CostLedgerTest {
                 () -> CostLedger.load(csv(), MAX_TOTAL, FIXED_CLOCK));
         assertTrue(e.getMessage().contains("2번째 줄"), e.getMessage());
     }
+
+    @Test
+    @DisplayName("성공한 실행만 사이클·역할별로 기억한다 (CSV 복원과 새 기록 모두)")
+    void remembersSucceededRuns() throws IOException {
+        Files.writeString(csv(), UsageRecord.CSV_HEADER + "\n"
+                + FIXED_TIME + ",3,planner,opus,success,0.50,0,0,0,0,1,1\n"
+                + FIXED_TIME + ",3,generator,sonnet,error_max_budget_usd,5.10,0,0,0,0,1,1\n");
+
+        CostLedger ledger = CostLedger.load(csv(), MAX_TOTAL, FIXED_CLOCK);
+
+        assertTrue(ledger.succeeded(3, Role.PLANNER));
+        assertFalse(ledger.succeeded(3, Role.GENERATOR));
+        assertFalse(ledger.succeeded(4, Role.PLANNER));
+
+        ledger.record(3, Role.GENERATOR, "sonnet", TestFixtures.success("1.00", "완료"));
+        assertTrue(ledger.succeeded(3, Role.GENERATOR));
+    }
 }

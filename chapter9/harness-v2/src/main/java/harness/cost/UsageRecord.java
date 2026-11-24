@@ -27,6 +27,9 @@ public record UsageRecord(
             "timestamp,cycle,role,model,subtype,cost_usd,input,cache_creation,cache_read,output,turns,duration_ms";
 
     public static final int COLUMN_COUNT = 12;
+    public static final int CYCLE_COLUMN = 1;
+    public static final int ROLE_COLUMN = 2;
+    public static final int SUBTYPE_COLUMN = 4;
     public static final int COST_COLUMN = 5;
 
     public static UsageRecord of(String timestamp, int cycle, Role role, String model, AgentResult result) {

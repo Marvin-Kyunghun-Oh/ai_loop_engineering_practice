@@ -449,6 +449,49 @@ class HarnessTest {
             assertTrue(haltText().contains("역할: generator (실행 전)"), haltText());
             assertEquals(0, files.readCycleCount(), "중단된 사이클은 카운트하지 않는다");
         }
+
+        @Test
+        @DisplayName("generator까지 끝나고 멈춘 사이클을 다시 돌면 evaluator부터 한다 (planner·generator 건너뜀)")
+        void resumesAtEvaluatorAfterMidCycleHalt() {
+            TextFiles.write(files.usageCsv(), UsageRecord.CSV_HEADER + "\n"
+                    + FIXED_TIME + ",1,planner,opus,success,0.50,0,0,0,0,1,1\n"
+                    + FIXED_TIME + ",1,generator,sonnet,success,0.20,0,0,0,0,1,1\n");
+            TextFiles.write(files.current(), "T1\n");
+            runner.expect(Role.EVALUATOR, success("0.5", "T1 PASS"));
+
+            harness(config("max_iterations: 50", "max_iterations: 1")).run();
+
+            assertEquals(List.of(Role.EVALUATOR), runner.calledRoles());
+            assertEquals(1, files.readCycleCount());
+            assertTrue(consoleText().contains("planner를 건너뛰고"), consoleText());
+            assertTrue(consoleText().contains("generator를 건너뛰고"), consoleText());
+        }
+
+        @Test
+        @DisplayName("planner만 성공하고 멈췄으면 planner는 건너뛰고 generator부터 한다. CURRENT를 지우지 않는다")
+        void resumesAtGeneratorAfterPlannerSuccess() {
+            TextFiles.write(files.usageCsv(), UsageRecord.CSV_HEADER + "\n"
+                    + FIXED_TIME + ",1,planner,opus,success,0.50,0,0,0,0,1,1\n");
+            TextFiles.write(files.current(), "T1\n");
+            runner.expect(Role.GENERATOR, success("1.0", "T1 완료"))
+                    .expect(Role.EVALUATOR, success("0.5", "T1 PASS"));
+
+            harness(config("max_iterations: 50", "max_iterations: 1")).run();
+
+            assertEquals(List.of(Role.GENERATOR, Role.EVALUATOR), runner.calledRoles());
+        }
+
+        @Test
+        @DisplayName("planner가 성공했어도 CURRENT가 없으면 planner를 다시 한다")
+        void plannerRerunsWhenCurrentMissing() {
+            TextFiles.write(files.usageCsv(), UsageRecord.CSV_HEADER + "\n"
+                    + FIXED_TIME + ",1,planner,opus,success,0.50,0,0,0,0,1,1\n");
+            runner.expect(Role.PLANNER, writeDone(), success("0.5", "x"));
+
+            harness(config()).run();
+
+            assertEquals(List.of(Role.PLANNER), runner.calledRoles());
+        }
     }
 
     @Nested
@@ -460,9 +503,8 @@ class HarnessTest {
         void limitAbortsCycleAndKeepsCounter() {
             runner.expect(Role.PLANNER, writeCurrent("T1"), success("0.5", "T1 선정"))
                     .expect(Role.GENERATOR, budgetLimit("5.31"))
-                    .expect(Role.PLANNER, writeCurrent("T2"), success("0.5", "T2 선정"))
-                    .expect(Role.GENERATOR, success("1.0", "T2 완료"))
-                    .expect(Role.EVALUATOR, success("0.5", "T2 PASS"));
+                    .expect(Role.GENERATOR, success("1.0", "T1 완료"))
+                    .expect(Role.EVALUATOR, success("0.5", "T1 PASS"));
 
             int exit = harness(config("max_iterations: 50", "max_iterations: 2")).run();
 
@@ -470,11 +512,11 @@ class HarnessTest {
             runner.assertAllStepsUsed();
             assertEquals(1, files.readCycleCount(), "두 번 시도했지만 완료한 사이클은 1개");
             List<String> journal = lines(files.journal());
-            assertEquals(5, journal.size());
+            assertEquals(4, journal.size());
             assertTrue(journal.stream().allMatch(line -> line.contains("[c1]")), "JOURNAL에 [c1]이 반복된다");
             assertTrue(journal.get(1).endsWith("· $5.31 · error_max_budget_usd"), journal.get(1));
-            assertTrue(Files.exists(files.logsDir().resolve("c1-planner.json")));
-            assertTrue(Files.exists(files.logsDir().resolve("c1-planner-2.json")), "원본 로그를 덮어쓰지 않는다");
+            assertTrue(Files.exists(files.logsDir().resolve("c1-generator.json")));
+            assertTrue(Files.exists(files.logsDir().resolve("c1-generator-2.json")), "원본 로그를 덮어쓰지 않는다");
         }
 
         @Test
@@ -482,7 +524,6 @@ class HarnessTest {
         void sameTaskLimitTwiceHalts() {
             runner.expect(Role.PLANNER, writeCurrent("T1"), success("0.5", "x"))
                     .expect(Role.GENERATOR, budgetLimit("5.10"))
-                    .expect(Role.PLANNER, writeCurrent("T1"), success("0.5", "x"))
                     .expect(Role.GENERATOR, turnLimit("2.00"));
 
             int exit = harness(config()).run();
@@ -495,11 +536,10 @@ class HarnessTest {
         }
 
         @Test
-        @DisplayName("다른 항목에서 상한에 걸리면 HALT하지 않는다")
-        void differentTaskLimitDoesNotHalt() {
-            runner.expect(Role.PLANNER, writeCurrent("T1"), success("0.5", "x"))
-                    .expect(Role.GENERATOR, budgetLimit("5.10"))
-                    .expect(Role.PLANNER, writeCurrent("T2"), success("0.5", "x"))
+        @DisplayName("다른 역할·항목에서 상한에 걸리면 HALT하지 않는다")
+        void differentKeyLimitDoesNotHalt() {
+            runner.expect(Role.PLANNER, budgetLimit("5.10"))
+                    .expect(Role.PLANNER, writeCurrent("T1"), success("0.5", "x"))
                     .expect(Role.GENERATOR, budgetLimit("5.10"));
 
             int exit = harness(config("max_iterations: 50", "max_iterations: 2")).run();
@@ -530,6 +570,8 @@ class HarnessTest {
             runner.expect(Role.PLANNER, error("0.01", "일시 오류"))
                     .expect(Role.PLANNER, writeCurrent("T1"), success("0.5", "x"))
                     .expect(Role.GENERATOR, error("0.01", "일시 오류"))
+                    .expect(Role.GENERATOR, success("1.0", "T1 완료"))
+                    .expect(Role.EVALUATOR, success("0.5", "T1 PASS"))
                     .expect(Role.PLANNER, writeDone(), success("0.5", "x"));
 
             int exit = harness(config()).run();

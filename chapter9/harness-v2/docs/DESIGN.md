@@ -210,7 +210,7 @@ timestamp,cycle,role,model,subtype,cost_usd,input,cache_creation,cache_read,outp
 - 2026-11-24T12:29:10+09:00 [c12] evaluator: T7b PASS 12/12 · $0.80 · success · PASS 12/12
 - 2026-11-24T12:40:02+09:00 [c13] generator: Reached maximum budget ($5) · $5.31 · error_max_budget_usd
 ```
-- 요약은 결과 JSON의 `result` 첫 줄에서 가져온다. `result`가 `null`이면(오류) `errors[0]`을 쓴다.
+- 요약은 결과 JSON의 `result`의 마지막 내용 있는 줄에서 가져온다(0015). `result`가 `null`이면(오류) `errors[0]`을 쓴다.
 - 200자를 넘으면 자른다.
 
 ### 4.7 `docs/HALT`
@@ -367,6 +367,10 @@ runAgent(role):
 
 - 상한 도달과 오류로 이 사이클을 중단한 경우 `.cycle_count`를 올리지 않는다.
 - 다음 사이클은 같은 번호로 다시 시작한다. 그래서 JOURNAL에 같은 `[c12]`가 두 번 나올 수 있다. 이건 의도한 동작이다.
+- **중단된 사이클은 이어서 한다 (0016).** 같은 번호로 다시 시작할 때 `USAGE.csv`에 `success`로 남은 역할은 건너뛴다.
+  - planner가 성공했고 `CURRENT`가 유효하면 planner를 건너뛴다. 이때 `DONE`·`CURRENT` 삭제와 아카이브도 하지 않는다.
+  - generator가 성공했으면 generator도 건너뛰고 evaluator부터 한다.
+  - 건너뛰지 않으면 generator까지 끝나 `[x]`가 된 항목을 planner가 넘어가 evaluator가 한 번도 평가하지 못한다(예산 HALT 뒤 재개 때 드러났다).
 - 구현하며 정한 동작 (5단계, 사용자 확인 2026-11-24)
   1. 사이클 시작 때 `DONE`과 함께 `CURRENT`도 지운다. 지우지 않으면 planner가 새로 쓰지 않아도 지난 항목으로 generator가 돈다.
   2. 시작할 때 `HALT`가 있으면 아무것도 실행하지 않는다. v1은 planner를 한 번 돌린 뒤에야 멈췄다.

@@ -160,22 +160,32 @@ public final class Harness {
     private CycleEnd runCycle(int cycle) {
         log("=== 사이클 " + cycle + " 시작 ===");
 
-        // 매 사이클 planner가 PRD와 코드의 간극을 다시 판정하게 한다 (v1과 같음).
-        files.deleteDone();
-        // 지난 사이클의 CURRENT가 남아 있으면, planner가 새로 쓰지 않아도 generator가 옛 항목으로 돈다.
-        files.deleteCurrent();
+        // 같은 번호의 사이클이 중단된 적이 있으면, 이미 성공한 역할은 건너뛰고 이어서 한다.
+        // 건너뛰지 않으면 generator까지 끝난 항목을 planner가 [x]로 보고 넘어가 evaluator를 받지 못한다.
+        boolean plannerAlreadyDone = ledger.succeeded(cycle, Role.PLANNER)
+                && files.readCurrent().filter(ProjectFiles::isValidTaskId).isPresent();
 
-        archiveClosedMilestones();
+        Next next = Next.CONTINUE;
+        if (plannerAlreadyDone) {
+            log("이 사이클의 planner는 이미 성공했다. planner를 건너뛰고 이어서 한다.");
+        } else {
+            // 매 사이클 planner가 PRD와 코드의 간극을 다시 판정하게 한다 (v1과 같음).
+            files.deleteDone();
+            // 지난 사이클의 CURRENT가 남아 있으면, planner가 새로 쓰지 않아도 generator가 옛 항목으로 돈다.
+            files.deleteCurrent();
 
-        Next next = runAgent(Role.PLANNER, cycle, null);
-        if (next != Next.CONTINUE) {
-            return toCycleEnd(next);
-        }
-        if (files.isDone()) {
-            return CycleEnd.DONE;
-        }
-        if (files.isHalted()) {
-            return CycleEnd.HALTED_BY_AGENT;
+            archiveClosedMilestones();
+
+            next = runAgent(Role.PLANNER, cycle, null);
+            if (next != Next.CONTINUE) {
+                return toCycleEnd(next);
+            }
+            if (files.isDone()) {
+                return CycleEnd.DONE;
+            }
+            if (files.isHalted()) {
+                return CycleEnd.HALTED_BY_AGENT;
+            }
         }
 
         Optional<String> current = files.readCurrent();
@@ -194,9 +204,13 @@ public final class Harness {
         }
         log("이번 사이클 항목: " + taskId);
 
-        next = runAgent(Role.GENERATOR, cycle, taskId);
-        if (next != Next.CONTINUE) {
-            return toCycleEnd(next);
+        if (ledger.succeeded(cycle, Role.GENERATOR)) {
+            log("이 사이클의 generator는 이미 성공했다. generator를 건너뛰고 evaluator부터 한다.");
+        } else {
+            next = runAgent(Role.GENERATOR, cycle, taskId);
+            if (next != Next.CONTINUE) {
+                return toCycleEnd(next);
+            }
         }
 
         next = runAgent(Role.EVALUATOR, cycle, taskId);
