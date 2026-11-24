@@ -12,7 +12,7 @@ Main ─▶ ConfigLoader ─▶ HarnessConfig (harness.yml)
   └▶ Harness (메인 루프)
        ├─ Bootstrap            PRD가 없으면 대화형 planner 실행
        ├─ TaskArchiver         끝난 마일스톤의 작업 지시를 archive로 이동 (0005)
-       ├─ CycleRunner          planner → generator → evaluator
+       ├─ runCycle()           planner → generator → evaluator (Harness의 메서드)
        │    ├─ PromptRenderer  프롬프트의 {{변수}} 치환 (D3)
        │    ├─ ToolPolicy      역할별 허용·금지 도구 (0008)
        │    ├─ CostLedger      실행 전 예산 검사, USAGE.csv 기록 (0007)
@@ -40,7 +40,6 @@ harness-v2/
 ├── src/main/java/harness/
 │   ├── Main.java
 │   ├── Harness.java
-│   ├── CycleRunner.java
 │   ├── Bootstrap.java
 │   ├── config/   HarnessConfig.java, ConfigLoader.java
 │   ├── claude/   ClaudeRunner.java, ProcessClaudeRunner.java,
