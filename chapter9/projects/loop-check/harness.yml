@@ -1,0 +1,32 @@
+# loop-check: FAIL 재작업 루프와 합의 불발 HALT 확인용 (scenario/SCENARIO.md)
+# planner·generator는 haiku로 싸게, evaluator만 sonnet으로 올려 FAIL이 나기 쉽게 한다.
+claude:
+  path: claude
+
+models:
+  planner: haiku
+  generator: haiku
+  evaluator: sonnet
+
+limits:
+  max_iterations: 3
+  max_total_usd: 3
+  max_agent_usd: 0.5
+  max_turns: null
+  agent_timeout_min: 10
+  backlog_per_milestone: 2
+  max_consecutive_errors: 2
+
+commands:
+  test: "python3 -m unittest discover -s tests -t ."
+  test_path: "python3 -m unittest {path}"
+  build: "python3 -m compileall -q src"
+  add_dependency: "의존성을 추가하지 않는다. 표준 라이브러리만 쓴다"
+
+permissions:
+  generator_bash:
+    - "Bash(python3 -m unittest:*)"
+    - "Bash(python3 -m compileall:*)"
+  evaluator_bash:
+    - "Bash(python3 -m unittest:*)"
+    - "Bash(python3 -m compileall:*)"

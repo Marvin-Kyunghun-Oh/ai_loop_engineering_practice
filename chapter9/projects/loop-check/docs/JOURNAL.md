@@ -1,0 +1,43 @@
+- 2026-11-24T22:08:40+09:00 [c1] planner: T1 선정 (M1 시작, PLAN 4개 마일스톤과 TASKS 7개 항목 신규 작성) · $0.01 · success
+- 2026-11-24T22:09:03+09:00 [c1] generator: T1 BLOCKED(1회째): 허용되지 않은 명령 필요: `python3 -c "from src.durations import parse_duration; print('ok')"` · $0.01 · success
+- 2026-11-24T22:09:18+09:00 [c1] evaluator: T1 조건부 8/12 · $0.11 · success · 조건부 8/12
+- 2026-11-24T22:10:02+09:00 [c2] planner: T1 선정 (M1 계속, T1 acceptance를 허용 명령 compileall로 교체, BACKLOG 보강 2건 기록) · $0.01 · success
+- 2026-11-24T22:10:20+09:00 [c2] generator: T1 완료 (compileall 통과, 테스트 0개: 테스트는 T3에서 추가) · $0.01 · success
+- 2026-11-24T22:10:33+09:00 [c2] evaluator: T1 PASS 7/9 · $0.10 · success · PASS 7/9
+- 2026-11-24T22:10:53+09:00 [c3] planner: T2 선정 (M1 계속, REVIEW PASS 7/9 메모 2건을 BACKLOG에 기록) · $0.01 · success
+- 2026-11-24T22:11:14+09:00 [c3] generator: T2 완료 (compileall 통과, 테스트 파일은 아직 없어 unittest 0개 실행, T3에서 작성) · $0.01 · success
+- 2026-11-24T22:11:28+09:00 [c3] evaluator: T2 PASS 9/9 · $0.11 · success · PASS 9/9
+- 2026-11-24T22:15:57+09:00 [c4] planner: T3 선정 (M1 진행 중, REVIEW PASS 메모 2건을 BACKLOG에 옮김) · $0.01 · success
+- 2026-11-24T22:16:15+09:00 [c4] generator: T3 완료 (테스트 7개 통과, 전체 discover 7개 OK, compileall 오류 없음) · $0.01 · success
+- 2026-11-24T22:16:30+09:00 [c4] evaluator: T3 PASS 10/12 · $0.11 · success · PASS 10/12
+- 2026-11-24T22:16:59+09:00 [c5] planner: T4 선정 (M2 진행, REVIEW T3 PASS 메모 2건을 BACKLOG에 기록) · $0.01 · success
+- 2026-11-24T22:17:19+09:00 [c5] generator: T4 완료 (컴파일 통과, 테스트 7개 통과) · $0.01 · success
+- 2026-11-24T22:17:35+09:00 [c5] evaluator: T4 PASS 9/12 · $0.11 · success · PASS 9/12
+- 2026-11-24T22:18:02+09:00 [c6] planner: T5 선정 (M2 진행, REVIEW T4 PASS 메모 2건을 BACKLOG에 기록) · $0.01 · success
+- 2026-11-24T22:18:20+09:00 [c6] generator: T5 완료 (테스트 16개 통과, 오류 테스트 9개 추가) · $0.01 · success
+- 2026-11-24T22:18:33+09:00 [c6] evaluator: T5 PASS 11/12 · $0.11 · success · PASS 11/12
+- 2026-11-24T22:22:00+09:00 [c7] planner: T8 선정 (M3 전 마감 M2 BACKLOG 결함 1개 항목화, REVIEW 보강 2건 기록, PRD M2 프리셋 누락분 M5로 추가) · $0.02 · success
+- 2026-11-24T22:22:18+09:00 [c7] generator: T8 완료 (테스트 17개 통과, `" 1h "` → 3600 정상 입력 테스트 추가) · $0.01 · success
+- 2026-11-24T22:22:37+09:00 [c7] evaluator: T8 PASS 12/12 · $0.13 · success · PASS 12/12
+- 2026-11-24T22:22:57+09:00 [c8] planner: T6 선정 (M3 독스트링 진행, REVIEW PASS 메모를 BACKLOG에 이월) · $0.01 · success
+- 2026-11-24T22:23:12+09:00 [c8] generator: T6 완료 (독스트링 추가, compileall 통과, 전체 테스트 17개 통과) · $0.01 · success
+- 2026-11-24T22:23:28+09:00 [c8] evaluator: T6 PASS 10/12 · $0.11 · success · PASS 10/12
+- 2026-11-24T22:23:57+09:00 [c9] planner: T7 선정 (M4 시작, T6 REVIEW PASS 메모 2건 BACKLOG 이월, M3 마감 처리는 새 항목 없음, storage 합의 대기로 M5 보류) · $0.01 · success
+- 2026-11-24T22:24:14+09:00 [c9] generator: T7 완료 (테스트 17개 통과, PRD 대조 완료) · $0.01 · success
+- 2026-11-24T22:24:33+09:00 [c9] evaluator: T7 PASS 10/12 · $0.13 · success · PASS 10/12
+- 2026-11-24T22:27:24+09:00 [c10] planner: T9 선정 (M5 진행, storage 합의 B(CSV)를 PRD M2에 반영, REVIEW 메모 2건 BACKLOG 이관) · $0.01 · success
+- 2026-11-24T22:27:48+09:00 [c10] generator: T9 완료 (compileall 통과, 전체 테스트 17개 통과) · $0.01 · success
+- 2026-11-24T22:28:06+09:00 [c10] evaluator: T9 PASS 9/12 · $0.10 · success
+- 2026-11-24T22:29:01+09:00 [c11] planner: T10 선정 (M5 진행, T9 메모 3건 BACKLOG 이관, load_presets KeyError 결함은 M5 마감 때 항목화 후보) · $0.02 · success
+- 2026-11-24T22:29:25+09:00 [c11] generator: T10 완료 (테스트 23개 통과; test_presets 6개 통과, 전체 discover OK) · $0.01 · success
+- 2026-11-24T22:29:39+09:00 [c11] evaluator: T10 PASS 11/12 · $0.11 · success · PASS 11/12
+- 2026-11-24T22:30:20+09:00 [c12] planner: T11 선정 (M5 마감: BACKLOG 결함 T9 항목화 → T11, REVIEW T10 보강 2건 BACKLOG 이관) · $0.02 · success
+- 2026-11-24T22:30:50+09:00 [c12] generator: T11 완료 (테스트 28개 통과, 컴파일 오류 없음) · $0.01 · success
+- 2026-11-24T22:31:11+09:00 [c12] evaluator: T11 PASS 10/12 · $0.13 · success · PASS 10/12
+- 2026-11-24T22:40:18+09:00 [c13] planner: T12 선정 (M6 시작, PRD M3 간극 추가, 사이클 12 REVIEW 메모 2건 BACKLOG 이관) · $0.02 · success
+- 2026-11-24T22:40:44+09:00 [c13] generator: T12 완료 (테스트 33개 통과, total_minutes 테스트 5개 포함, compileall 오류 없음) · $0.01 · success
+- 2026-11-24T22:41:03+09:00 [c13] evaluator: T12 PASS 11/12 · $0.14 · success · PASS 11/12
+- 2026-11-24T22:43:11+09:00 [c14] planner: T13 선정 (M6 진행, format-style 합의 A를 PRD M3에 반영, REVIEW T12 메모 1건 BACKLOG 이관) · $0.01 · success
+- 2026-11-24T22:43:48+09:00 [c14] generator: T13 완료 (format_duration 구현, 테스트 40개 통과) · $0.01 · success
+- 2026-11-24T22:44:08+09:00 [c14] evaluator: T13 PASS 10/12 · $0.13 · success · PASS 10/12
+- 2026-11-24T22:44:37+09:00 [c15] planner: DONE 생성 (M6 마감, 미처리 결함 없음, PRD M1~M3 대조 완료, 전체 TASKS 완료 + REVIEW PASS 10/12) · $0.01 · success
