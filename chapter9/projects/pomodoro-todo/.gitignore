@@ -1,0 +1,10 @@
+.harness/
+
+# macOS / 에디터
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Node
+node_modules/

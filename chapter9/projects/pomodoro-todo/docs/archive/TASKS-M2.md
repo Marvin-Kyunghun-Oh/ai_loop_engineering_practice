@@ -1,0 +1,94 @@
+# TASKS-M2.md
+
+## M2. 타이머 도메인 로직
+
+- [x] T13. 타이머 기본 전이와 남은 시간 계산 (순수 함수)
+  - 내용
+    - `src/domain/timer.ts`에 `TimerState`를 받아 새 `TimerState`를 돌려주는 순수 함수를 둔다(입력 객체를 변경하지 않는다). 시각은 인자 `now: number`로 받는다.
+    - `idleTimer()`: `{ phase: 'idle', paused: false, taskId: null, endsAt: null, remainingMs: null }`
+    - `startFocus(taskId, now)`: phase=focus, paused=false, endsAt=now+FOCUS_MS, remainingMs=null
+    - `pause(state, now)`: focus/break 진행 중일 때만 paused=true, remainingMs=max(0, endsAt−now), endsAt=null. idle이거나 이미 일시정지면 그대로 반환.
+    - `resume(state, now)`: 일시정지일 때만 paused=false, endsAt=now+remainingMs, remainingMs=null. 그 외엔 그대로 반환.
+    - `cancel(state)`: 어떤 상태든 `idleTimer()` (집계는 호출자가 하지 않는다 = 미집계).
+    - `remainingMs(state, now)`: idle → 0, 일시정지 → remainingMs, 진행 중 → max(0, endsAt−now). setInterval 틱 수를 쓰지 않는다(PRD 6절).
+    - `formatMmSs(ms)`: 초 단위 올림 후 `mm:ss` (예: 1_500_000 → "25:00", 1 → "00:01", 0 → "00:00").
+  - acceptance
+    - `npx vitest run tests/domain/timer.spec.ts` 통과. 최소 다음 사례를 포함한다:
+      - FOCUS_MS가 1_500_000, BREAK_MS가 300_000임을 단언
+      - startFocus 후 7분 경과 시 remainingMs = 18분
+      - 집중 10분 경과 후 pause → 5분 더 경과 → resume → 그로부터 15분 후 remainingMs = 0, 14분 후 = 1분
+      - idle에서 pause/resume은 상태 불변, 이미 일시정지인 상태에서 pause는 불변
+      - 일시정지 포함 모든 상태에서 cancel 결과가 idleTimer()와 같음
+      - 입력 state 객체가 변경되지 않음(호출 전후 deep equal)
+      - formatMmSs 위 세 예시
+    - `npx vue-tsc --noEmit` 종료 코드 0
+  - touch: `src/domain/timer.ts`, `tests/domain/timer.spec.ts`
+
+- [x] T14. 시간 경과 처리: 집중 완료 → 휴식 → 대기 (P4, P5)
+  - 내용
+    - `src/domain/timer.ts`에 `advance(state, now): { state: TimerState; completed: PomodoroRecord[]; events: TimerEvent[] }`를 추가한다. `TimerEvent = 'focusCompleted' | 'breakCompleted'`.
+    - 진행 중인 focus에서 now ≥ endsAt이면 완료 이력 `{ taskId, completedAt: endsAt }` 1건, 이벤트 focusCompleted, 상태는 break(endsAt = 이전 endsAt + BREAK_MS)로 전환한다. 이어서 같은 호출 안에서 break도 now ≥ endsAt이면 breakCompleted와 함께 idle로 전환한다(닫힌 동안 둘 다 지난 경우를 6절 복원에서 재사용하기 위함).
+    - 진행 중인 break에서 now ≥ endsAt이면 breakCompleted, idle. 다음 집중은 자동 시작하지 않는다.
+    - 일시정지 상태와 idle은 시간이 흘러도 변하지 않는다(completed·events 빈 배열).
+    - 휴식 완료는 completed에 넣지 않는다(휴식은 횟수에 포함하지 않음).
+  - acceptance
+    - `npx vitest run tests/domain/timer.spec.ts` 통과. T13 사례에 더해 최소 다음을 포함한다:
+      - 집중 시작 후 24:59 경과 → 변화 없음; 25:00 경과 → break, completed 1건(completedAt = 시작+25분), events ['focusCompleted']
+      - break 진입 후 5분 경과 → idle, events ['breakCompleted'], completed 빈 배열
+      - 집중 시작 후 31분 경과를 한 번에 advance → idle, completed 1건(completedAt = 시작+25분), events ['focusCompleted','breakCompleted']
+      - 집중 시작 후 27분 경과 → break, 남은 시간 3분
+      - 일시정지 상태에서 1시간 경과 → 변화 없음
+    - `npx vue-tsc --noEmit` 종료 코드 0
+  - touch: `src/domain/timer.ts`, `tests/domain/timer.spec.ts`
+
+- [x] T15. 할 일 클릭 규칙 (P1, P6, P7)
+  - 내용
+    - `src/domain/timer.ts`에 `clickTask(state, taskId, now): ClickResult`를 추가한다.
+      `ClickResult = { kind: 'started'; state: TimerState } | { kind: 'noop' } | { kind: 'confirmNeeded' }`
+    - idle → started(startFocus). 완료 체크 여부는 따지지 않는다(P1, 합의 A).
+    - focus(일시정지 포함) + 같은 taskId → noop. 다른 taskId → confirmNeeded.
+    - break(일시정지 포함) + 어떤 taskId든 → 휴식 종료 후 바로 started(확인 없음, P7).
+    - `confirmSwitch(taskId, now)`: 확인 시 기존 집중은 미집계 취소하고 새 할 일로 startFocus한 상태를 반환한다.
+  - acceptance
+    - `npx vitest run tests/domain/timer.spec.ts` 통과. 최소 다음을 포함한다:
+      - idle에서 클릭 → started, taskId·endsAt=now+25분
+      - focus 중 같은 할 일 클릭 → noop; 일시정지(focus) 중 같은 할 일 → noop
+      - focus 중 다른 할 일 → confirmNeeded; confirmSwitch 결과는 새 taskId, endsAt=now+25분
+      - break 중(일시정지 포함) 클릭 → started, 새 할 일로 focus
+    - `npx vue-tsc --noEmit` 종료 코드 0
+  - touch: `src/domain/timer.ts`, `tests/domain/timer.spec.ts`
+
+- [x] T16. 복원 계산 (PRD 6절)
+  - 내용
+    - `src/domain/timer.ts`에 `restore(saved, now, taskExists: (id: string) => boolean): { state: TimerState; completed: PomodoroRecord[] }`를 추가한다.
+    - 대상 할 일이 없으면(taskExists false) idle, completed 빈 배열.
+    - 그 외에는 `advance`를 재사용해 닫힌 동안 지난 집중을 완료로 집계(completedAt = 실제 종료 예정 시각)하고, 휴식까지 지났으면 idle, 휴식 중이면 남은 휴식 상태를 돌려준다.
+    - 일시정지 상태는 남은 시간 그대로 일시정지로 복원한다.
+    - 놓친 알림음은 재생하지 않으므로 events는 돌려주지 않는다.
+    - 저장 형식 검증(스키마 불일치)은 M3 범위이며 여기서는 다루지 않는다.
+  - acceptance
+    - `npx vitest run tests/domain/timer.spec.ts` 통과. 최소 다음을 포함한다:
+      - 집중 중 저장 → 10분 뒤 복원: focus, 남은 15분, completed 빈 배열
+      - 집중 중 저장(종료 예정 T) → T+2분에 복원: break, 남은 3분, completed 1건(completedAt = T)
+      - 집중 중 저장 → T+10분에 복원: idle, completed 1건(completedAt = T)
+      - 일시정지(남은 7분) 저장 → 1시간 뒤 복원: 일시정지, 남은 7분
+      - 대상 할 일이 삭제됨 → idle, completed 빈 배열
+    - `npx vue-tsc --noEmit` 종료 코드 0
+  - touch: `src/domain/timer.ts`, `tests/domain/timer.spec.ts`
+
+- [x] T17. 타이머 스토어: 도메인 함수와 할 일 스토어 연결 (P4, R3, T4 연동)
+  - 내용
+    - `src/stores/timer.ts`: `createTimerStore(storeId, deps)` 팩토리(할 일 스토어와 같은 주입 방식, 기본 clock = systemClock). state: `timer: TimerState`, `records: PomodoroRecord[]`.
+    - actions: `clickTask(taskId)`(ClickResult의 kind를 반환), `confirmSwitch(taskId)`, `pause()`, `resume()`, `cancel()`, `tick()`.
+    - `tick()`: `advance`를 호출해 completed마다 records에 추가하고 할 일 스토어의 `incrementPomodoro(taskId)`를 호출한다. events를 반환한다(알림음 재생은 M5).
+    - `onTaskRemoved(id)`: 타이머 대상이면 cancel(미집계). records는 지우지 않는다(T4, 합의 B).
+    - 저장(localStorage)은 M3 범위이며 여기서는 다루지 않는다.
+  - acceptance
+    - `npx vitest run tests/stores/timer.spec.ts` 통과. fake clock으로 최소 다음을 포함한다:
+      - 할 일 A 클릭 후 25분 advance → tick: records 1건(taskId A), A의 pomodoroCount 1, timer.phase 'break', 반환 events ['focusCompleted']
+      - 집중 중 cancel → records 0건, pomodoroCount 0
+      - 집중 중 대상 할 일 remove 후 onTaskRemoved → idle; 이전에 쌓인 records는 유지
+      - 다른 할 일 클릭 → 'confirmNeeded' 반환, 상태 불변; confirmSwitch 후 새 대상으로 focus
+    - `npx vitest run` 전체 통과(회귀 없음)
+    - `npx vue-tsc --noEmit` 종료 코드 0
+  - touch: `src/stores/timer.ts`, `tests/stores/timer.spec.ts`

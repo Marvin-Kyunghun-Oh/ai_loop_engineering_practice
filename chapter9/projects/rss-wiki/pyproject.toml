@@ -7,7 +7,9 @@ authors = [
     { name = "Marvin-Kyunghun-Oh", email = "france1988@naver.com" }
 ]
 requires-python = ">=3.15"
-dependencies = []
+dependencies = [
+    "feedparser>=6.0.14",
+]
 
 [project.scripts]
 rss-wiki = "rss_wiki:main"
@@ -15,3 +17,11 @@ rss-wiki = "rss_wiki:main"
 [build-system]
 requires = ["uv_build>=0.13.7,<0.14.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

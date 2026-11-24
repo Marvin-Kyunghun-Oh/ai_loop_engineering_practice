@@ -1,0 +1,72 @@
+- 2026-11-24T16:40:01+09:00 [c1] planner: T10 선정 (PLAN M1~M5 작성, M1 항목 T10~T12 작성, PRD 미해결 의사결정 7건을 PLAN으로 옮기고 decisions/ 주제 파일과 planner 선택 기록) · $0.54 · success
+- 2026-11-24T16:40:47+09:00 [c1] generator: T10 완료 (vue-tsc 통과, 전체 테스트 1개 통과) · $0.16 · success
+- 2026-11-24T16:41:12+09:00 [c1] evaluator: REVIEW.md 작성을 마쳤습니다. 마지막으로 요약 한 줄을 냅니다. · $0.13 · success · PASS 12/15
+- 2026-11-24T16:41:32+09:00 [c2] planner: T11 선정 (T10 PASS 메모 [보강] 3건을 BACKLOG로 옮김, 미해결 결정 7건은 합의 대기 유지) · $0.33 · success
+- 2026-11-24T16:42:02+09:00 [c2] generator: T11 완료 (전체 테스트 6개 통과, vue-tsc 통과) · $0.13 · success
+- 2026-11-24T16:42:47+09:00 [c2] evaluator: T11 PASS 10/12 · $0.21 · success · PASS 10/12
+- 2026-11-24T16:43:52+09:00 [c3] planner: T12 선정 (M1 계속, 합의된 결정 7건 PRD 반영 후 PLAN 미해결 항목 비움, T11 PASS 메모 [보강] 3건 BACKLOG로 옮김, decisions 파일은 Bash가 없어 지우지 못하고 반영 완료 줄만 추가) · $0.55 · success
+- 2026-11-24T16:44:26+09:00 [c3] generator: T12 완료 (tasks 스토어 테스트 6개, 전체 테스트 12개 통과, vue-tsc 통과) · $0.15 · success
+- 2026-11-24T16:44:50+09:00 [c3] evaluator: T12 PASS 10/12 · $0.12 · success · PASS 10/12
+- 2026-11-24T16:52:01+09:00 [c4] planner: T13 선정 (M1 마감: BACKLOG에 결함 없어 마감 항목 없음, M2 시작 T13~T17 작성, T12 PASS 메모 보강 2건 BACKLOG로 옮김) · $0.55 · success
+- 2026-11-24T16:52:35+09:00 [c4] generator: T13 완료 (timer.spec.ts 15개 통과, vue-tsc 통과, 전체 테스트 27개 통과) · $0.17 · success
+- 2026-11-24T16:53:03+09:00 [c4] evaluator: T13 PASS 11/12 · $0.14 · success · PASS 11/12
+- 2026-11-24T16:53:25+09:00 [c5] planner: T14 선정 (M2 계속, T13 PASS 메모 [보강] 3건 BACKLOG로 옮김) · $0.37 · success
+- 2026-11-24T16:53:57+09:00 [c5] generator: T14 완료 (timer.spec 22개, 전체 테스트 34개 통과, vue-tsc 통과) · $0.17 · success
+- 2026-11-24T16:54:22+09:00 [c5] evaluator: T14 PASS 11/12 · $0.13 · success · PASS 11/12
+- 2026-11-24T16:54:41+09:00 [c6] planner: T15 선정 (M2 계속, T14 PASS 메모 [보강] 3건 BACKLOG로 옮김) · $0.35 · success
+- 2026-11-24T16:55:08+09:00 [c6] generator: T15 완료 (타이머 테스트 26개, 전체 테스트 38개 통과, vue-tsc 통과) · $0.15 · success
+- 2026-11-24T16:55:29+09:00 [c6] evaluator: T15 PASS 10/12 · $0.13 · success · PASS 10/12
+- 2026-11-24T16:55:53+09:00 [c7] planner: T16 선정 (M2 계속, T15 PASS 메모 [보강] 3건 BACKLOG로 옮김) · $0.39 · success
+- 2026-11-24T16:56:20+09:00 [c7] generator: T16 완료 (timer.spec 31개, 전체 테스트 43개 통과, vue-tsc 통과) · $0.15 · success
+- 2026-11-24T17:04:03+09:00 [c7] evaluator: T16 PASS 10/12 · $0.15 · success · PASS 10/12
+- 2026-11-24T17:04:22+09:00 [c8] planner: T17 선정 (M2 계속, T16 PASS 메모 [보강] 2건 BACKLOG로 옮김) · $0.31 · success
+- 2026-11-24T17:04:59+09:00 [c8] generator: T17 완료 (타이머 스토어 테스트 6개, 전체 테스트 49개 통과, vue-tsc 오류 없음) · $0.19 · success
+- 2026-11-24T17:05:29+09:00 [c8] evaluator: T17 PASS 10/12 · $0.14 · success · PASS 10/12
+- 2026-11-24T17:06:26+09:00 [c9] planner: T18 선정 (T17 PASS 보강 메모 3건 BACKLOG 이관, M2 마감·결함 없어 마감 항목 없음, M3 시작하며 T18~T20 작성) · $0.50 · success
+- 2026-11-24T17:06:56+09:00 [c9] generator: T18 완료 (schema 테스트 4개, 전체 테스트 53개 통과, vue-tsc 오류 없음) · $0.17 · success
+- 2026-11-24T17:07:24+09:00 [c9] evaluator: T18 PASS 10/12 · $0.15 · success · PASS 10/12
+- 2026-11-24T17:07:42+09:00 [c10] planner: T19 선정 (M3 계속, T18 PASS 메모 [보강] 3건 BACKLOG로 옮김) · $0.30 · success
+- 2026-11-24T17:08:24+09:00 [c10] generator: T19 완료 (repository 테스트 7개, 전체 테스트 60개 통과, vue-tsc 통과) · $0.16 · success
+- 2026-11-24T17:14:00+09:00 [c10] evaluator: T19 PASS 10/12 · $0.12 · success · PASS 10/12
+- 2026-11-24T17:14:19+09:00 [c11] planner: T20 선정 (T19 PASS 10/12, 보강 메모 2건을 BACKLOG로 옮김, M3 계속) · $0.29 · success
+- 2026-11-24T17:15:05+09:00 [c11] generator: T20 완료 (전체 테스트 65개 통과, vue-tsc 통과) · $0.21 · success
+- 2026-11-24T17:15:37+09:00 [c11] evaluator: T20 PASS 10/12 · $0.15 · success · PASS 10/12
+- 2026-11-24T17:16:48+09:00 [c12] planner: T21 선정 (T20 PASS 메모 결함 1·보강 3건 BACKLOG 이관, M3 마감하며 결함 1건 T21로 항목화, M4 시작 T21~T26 작성) · $0.62 · success
+- 2026-11-24T17:17:14+09:00 [c12] generator: T21 완료 (테스트 66개 통과, vue-tsc 오류 없음) · $0.16 · success
+- 2026-11-24T17:17:34+09:00 [c12] evaluator: T21 PASS 10/12 · $0.13 · success · PASS 10/12
+- 2026-11-24T17:17:53+09:00 [c13] planner: T22 선정 (M4 계속, T21 PASS 메모 [보강] 2건 BACKLOG로 옮김) · $0.33 · success
+- 2026-11-24T17:18:31+09:00 [c13] generator: T22 완료 (TimerPanel 테스트 3개, 전체 69개 통과, vue-tsc 종료 코드 0) · $0.18 · success
+- 2026-11-24T17:18:59+09:00 [c13] evaluator: T22 PASS 12/15 · $0.13 · success · PASS 12/15
+- 2026-11-24T17:19:17+09:00 [c14] planner: T23 선정 (T22 PASS 12/15, 보강 메모 3건 BACKLOG 이관, M4 계속) · $0.30 · success
+- 2026-11-24T17:19:55+09:00 [c14] generator: T23 완료 (TaskList 테스트 7개 포함 전체 76개 통과, vue-tsc 오류 없음) · $0.18 · success
+- 2026-11-24T17:20:23+09:00 [c14] evaluator: T23 조건부 11/15 · $0.15 · success · 조건부 11/15
+- 2026-11-24T17:24:28+09:00 [c15] planner: T24 선정 (T23 조건부 메모 [보강] 5건을 BACKLOG로 옮김, M4 진행 중) · $0.27 · success
+- 2026-11-24T17:25:03+09:00 [c15] generator: T24 완료 (전체 테스트 79개 통과, vue-tsc 통과) · $0.17 · success
+- 2026-11-24T17:25:29+09:00 [c15] evaluator: T24 PASS 12/15 · $0.14 · success · PASS 12/15
+- 2026-11-24T17:25:42+09:00 [c16] planner: T25 선정 (T24 PASS 메모 [보강] 3건을 BACKLOG로 옮김, M4 진행 중) · $0.26 · success
+- 2026-11-24T17:26:11+09:00 [c16] generator: T25 완료 (테스트 81개 통과, vue-tsc 종료 코드 0) · $0.16 · success
+- 2026-11-24T17:26:36+09:00 [c16] evaluator: T25 PASS 12/15 · $0.13 · success · PASS 12/15
+- 2026-11-24T17:26:56+09:00 [c17] planner: T26 선정 (T25 PASS 12/15, 메모 [결함] 1건과 [보강] 2건을 BACKLOG로 옮김, M4 계속) · $0.33 · success
+- 2026-11-24T17:27:35+09:00 [c17] generator: T26 완료 (전체 테스트 82개 통과, vue-tsc 통과) · $0.21 · success
+- 2026-11-24T17:28:02+09:00 [c17] evaluator: T26 PASS 12/15 · $0.13 · success · PASS 12/15
+- 2026-11-24T17:42:18+09:00 [c18] planner: T27 선정 (T26 PASS, M4 마감으로 BACKLOG 결함 1개를 T27로 항목화, M5 시작하며 T28~T31 작성, 보강 3건 BACKLOG 이관) · $0.58 · success
+- 2026-11-24T17:42:46+09:00 [c18] generator: T27 완료 (테스트 83개 통과, vue-tsc 통과) · $0.16 · success
+- 2026-11-24T17:43:11+09:00 [c18] evaluator: T27 PASS 11/12 · $0.14 · success · PASS 11/12
+- 2026-11-24T17:43:23+09:00 [c19] planner: T28 선정 (T27 PASS 반영, REVIEW 보강 메모 1건 BACKLOG 이관, M5 진행) · $0.26 · success
+- 2026-11-24T17:43:53+09:00 [c19] generator: T28 완료 (전체 테스트 88개 통과, vue-tsc 종료 코드 0) · $0.17 · success
+- 2026-11-24T17:44:13+09:00 [c19] evaluator: T28 PASS 12/15 · $0.13 · success · PASS 12/15
+- 2026-11-24T17:44:32+09:00 [c20] planner: T29 선정 (T28 PASS 12/15 반영, REVIEW 보강 메모 2건 BACKLOG 이관, M5 계속) · $0.32 · success
+- 2026-11-24T17:45:17+09:00 [c20] generator: T29 완료 (전체 테스트 93개 통과, vue-tsc 종료 코드 0) · $0.21 · success
+- 2026-11-24T17:45:38+09:00 [c20] evaluator: T29 PASS 10/12 · $0.14 · success · PASS 10/12
+- 2026-11-24T17:45:50+09:00 [c21] planner: T30 선정 (T29 PASS 반영, REVIEW 보강 메모 2건 BACKLOG 이관) · $0.26 · success
+- 2026-11-24T17:46:20+09:00 [c21] generator: T30 완료 (테스트 97개 통과, vue-tsc 종료 코드 0) · $0.16 · success
+- 2026-11-24T17:46:47+09:00 [c21] evaluator: T30 PASS 13/15 · $0.12 · success · PASS 13/15
+- 2026-11-24T17:47:01+09:00 [c22] planner: T31 선정 (T30 조건부 PASS 메모 [보강] 3건 BACKLOG 이관, M5 진행 중) · $0.28 · success
+- 2026-11-24T17:47:25+09:00 [c22] generator: T31 완료 (테스트 97개 통과, vue-tsc 통과) · $0.14 · success
+- 2026-11-24T17:47:46+09:00 [c22] evaluator: T31 PASS 10/12 · $0.12 · success · PASS 10/12
+- 2026-11-24T17:48:15+09:00 [c23] planner: DONE 생성 (T31 PASS, 보강 메모 2건 BACKLOG 이관, M5 마감 시 항목화할 결함 없음, PRD 전체와 코드 대조 완료) · $0.50 · success
+- 2026-11-24T18:03:35+09:00 [c24] planner: T32 선정 (PRD P1 개선 '키보드로 집중 시작'이 미구현이라 M6 신설, T31 보강 메모 2건은 이미 BACKLOG에 있음) · $0.35 · success
+- 2026-11-24T18:04:07+09:00 [c24] generator: T32 완료 (테스트 101개 통과, vue-tsc 오류 없음) · $0.15 · success
+- 2026-11-24T18:04:38+09:00 [c24] evaluator: T32 조건부 11/15 · $0.11 · success · 조건부 11/15
+- 2026-11-24T18:05:01+09:00 [c25] planner: DONE 생성 (T32 조건부 11/15, 보강 메모 2건 BACKLOG로 옮김, M6 마감 시 항목화할 결함 없음, PRD 전체와 코드 대조 완료) · $0.34 · success
+- 2026-11-24T18:10:30+09:00 [c26] planner: DONE 생성 (T32 조건부 11/15 메모 [보강] 2건은 이미 BACKLOG에 있음, M6 마감 시 항목화할 결함 없음, PRD 전체와 코드 대조 완료) · $0.37 · success

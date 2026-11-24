@@ -1,0 +1,73 @@
+plugins {
+    id 'application'
+}
+
+group = 'harness'
+version = '0.1.0'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Jackson: 결과 JSON 파싱과 harness.yml 읽기 (0003)
+    implementation platform('com.fasterxml.jackson:jackson-bom:2.23.0')
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
+    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml'
+
+    testImplementation platform('org.junit:junit-bom:5.14.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+application {
+    mainClass = 'harness.Main'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+// 스모크 테스트 (DESIGN 7.1, 0011): 실제 claude를 쓰므로 비용이 든다.
+// test·check에 연결하지 않는다. HARNESS_SMOKE=1일 때만 실제로 실행되고, 아니면 건너뛴다.
+//   $env:HARNESS_SMOKE = "1"; ./gradlew smokeTest
+sourceSets {
+    smokeTest {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+}
+
+configurations {
+    smokeTestImplementation.extendsFrom implementation
+    smokeTestRuntimeOnly.extendsFrom runtimeOnly
+}
+
+dependencies {
+    smokeTestImplementation platform('org.junit:junit-bom:5.14.4')
+    smokeTestImplementation 'org.junit.jupiter:junit-jupiter'
+    smokeTestRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.register('smokeTest', Test) {
+    group = 'verification'
+    description = '실제 claude로 샘플 프로젝트를 돌려 배관을 확인한다. 비용이 든다. HARNESS_SMOKE=1 필요'
+    testClassesDirs = sourceSets.smokeTest.output.classesDirs
+    classpath = sourceSets.smokeTest.runtimeClasspath
+    useJUnitPlatform()
+    outputs.upToDateWhen { false }
+    testLogging {
+        showStandardStreams = true
+        events 'passed', 'skipped', 'failed'
+    }
+}
