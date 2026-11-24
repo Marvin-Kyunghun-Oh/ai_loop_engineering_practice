@@ -1,7 +1,7 @@
 # STATUS
 
 - 갱신: 2026-11-24
-- 단계: **구현 중** (DESIGN 8절 1~9단계 완료, 테스트 170개 통과(실제 claude 확인 3개는 평소 건너뜀). 다음은 10단계)
+- 단계: **구현 중** (DESIGN 8절 1~9단계 완료, 10단계 중 Bootstrap 완료, 테스트 175개 통과(실제 claude 확인 3개는 평소 건너뜀). 다음은 10단계의 위험 명령 차단 훅(C2))
 
 ## 완료
 - v1 rss-wiki 실행을 중단하고 기록을 남겼다(0001). 브랜치 `feat/chap9-harness-setup`, 커밋 `8e03550`, `b8ec582`.
@@ -86,7 +86,7 @@
 
 ## 다음 할 일 (순서대로)
 1. **구현**: `DESIGN.md` 8절의 11단계를 따른다. 11단계는 스모크 테스트이고, 0007의 비용 보정도 이 단계에서 한다.
-   - 다음: 10단계. 위험 명령 차단 훅 확인(C2)과 `Bootstrap`(`runInteractive`). 아래 "10단계에서 검토할 것"을 먼저 본다. Bash 허용 목록 훅을 이번에 만들지 미룰지는 사용자가 정한다.
+   - 다음: 10단계의 나머지, 위험 명령 차단 훅(C2). 훅을 대상 프로젝트에 설치하는 방식(DESIGN 9절)을 사용자가 정해야 한다. Bash 허용 목록 훅은 0013으로 11단계 뒤로 미뤘다.
    - 각 단계가 끝날 때마다 `./gradlew test` 통과를 확인하고 이 파일을 갱신한다.
    - `DESIGN.md` 9절의 확인 항목은 해당 단계에서 확인한다.
 2. **실제 대상 프로젝트 실행**: 대상 프로젝트가 정해지면(0004) 돌린다. 비용 보정은 스모크 테스트에서 끝냈을 것이므로 보정된 상한을 쓴다.
@@ -114,8 +114,15 @@
 
 줄 번호는 v1 파일(`chapter9/harness/src/harness/prompts/`) 기준이다.
 
-## 10단계에서 검토할 것
-- **Bash 허용 목록 훅**: 6단계 확인에서 읽기 전용 명령(`whoami`)이 허용 목록 밖인데도 실행됐다(0008 확인 결과). C2 위험 명령 차단 훅과 같은 PreToolUse 훅이므로 함께 만든다.
+## 10단계 구현 메모
+- **Bootstrap 완료**(`Bootstrap`, `ProcessClaudeRunner.runInteractive`, `PromptRenderer.bootstrapPrompt`). 테스트 5개 추가.
+  - `Harness.run()`이 PRD가 없을 때 호출한다. 끝나도 PRD가 없으면 종료 코드 1.
+  - 명령줄: `claude --model {planner 모델} --append-system-prompt-file {.harness/logs/bootstrap.prompt.md} --allowedTools ... --disallowedTools Bash`. 입출력은 콘솔을 그대로 쓴다(`inheritIO`). 시간·예산 상한은 없다.
+  - **실제 claude로는 아직 확인하지 않았다.** `--append-system-prompt-file` 옵션이 `claude --help` 본문에는 `--append-system-prompt[-file]`로만 나온다. 사람이 대화하는 세션이라 자동으로 확인할 수 없으니, 처음 PRD 없이 실행할 때 세션이 뜨고 역할 지시가 적용되는지 본다. 안 되면 v1처럼 `--append-system-prompt <본문>`으로 바꾼다.
+  - 부트스트랩은 JOURNAL에 줄을 남기지 않는다(결과 JSON이 없어 0009의 형식을 채울 수 없다). 비용도 USAGE.csv에 잡히지 않는다(DESIGN 4.5).
+
+## 10단계에서 검토할 것 (C2만 남음)
+- **Bash 허용 목록 훅**(0013으로 11단계 뒤로 미룸): 6단계 확인에서 읽기 전용 명령(`whoami`)이 허용 목록 밖인데도 실행됐다(0008 확인 결과). C2 위험 명령 차단 훅과 같은 PreToolUse 훅이므로 함께 만든다.
   - 동작: 허용 패턴에 없는 Bash 명령은 거부한다.
   - 먼저 확인할 것(실제 claude, haiku 1~2회, 약 $0.005)
     - 자동 허용되는 읽기 전용 명령에도 훅이 호출되는지

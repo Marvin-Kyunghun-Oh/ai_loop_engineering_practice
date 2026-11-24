@@ -73,9 +73,57 @@ public final class ProcessClaudeRunner implements ClaudeRunner {
         return result;
     }
 
+    /**
+     * 대화형 세션을 띄우고 사용자가 끝낼 때까지 기다린다. 입출력은 이 콘솔을 그대로 쓴다.
+     * 시간 제한과 비용 상한은 없다. 사람이 대화하는 동안이라 폭주할 일이 없고, 입력을 기다리는 동안은 토큰이 쓰이지 않는다(DESIGN 4.5).
+     *
+     * @throws IllegalStateException claude를 실행하지 못했거나 하네스가 중단됐을 때
+     */
     @Override
     public void runInteractive(AgentRequest request) {
-        throw new UnsupportedOperationException("대화형 부트스트랩은 DESIGN 8절 10단계에서 구현한다");
+        Path promptFile = promptFileFor(request.rawLogFile());
+        TextFiles.write(promptFile, request.prompt());
+
+        ProcessBuilder builder = new ProcessBuilder(buildInteractiveCommand(request, promptFile))
+                .directory(request.workDir().toFile())
+                .inheritIO();
+        Process process;
+        try {
+            process = builder.start();
+        } catch (IOException e) {
+            throw new IllegalStateException("claude를 실행하지 못했다: " + e.getMessage(), e);
+        }
+        try {
+            process.waitFor();
+        } catch (InterruptedException e) {
+            killProcessTree(process);
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("하네스가 중단되어 claude를 종료했다", e);
+        }
+    }
+
+    /**
+     * {@code claude --model ... --allowedTools ... [--disallowedTools ...] --append-system-prompt-file 파일}
+     *
+     * <p>역할 지시는 시스템 프롬프트로 넣는다(v1과 같음). 길이 한도를 피하려고 인자 대신 파일로 넘긴다.
+     * 첫 메시지는 주지 않는다. 사용자가 먼저 말을 걸면 프롬프트의 절차대로 개요를 묻는다.
+     */
+    List<String> buildInteractiveCommand(AgentRequest request, Path systemPromptFile) {
+        List<String> command = new ArrayList<>();
+        command.add(executable);
+        command.add("--model");
+        command.add(request.model());
+        command.add("--append-system-prompt-file");
+        command.add(systemPromptFile.toString());
+        if (!request.allowedTools().isEmpty()) {
+            command.add("--allowedTools");
+            command.addAll(request.allowedTools());
+        }
+        if (!request.disallowedTools().isEmpty()) {
+            command.add("--disallowedTools");
+            command.addAll(request.disallowedTools());
+        }
+        return command;
     }
 
     /**

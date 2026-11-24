@@ -12,4 +12,9 @@ import harness.policy.Role;
 public interface PromptProvider {
 
     String promptFor(Role role, int cycle);
+
+    /** 대화형 부트스트랩(PRD 작성)의 시스템 프롬프트. {@link PromptRenderer}만 구현한다. */
+    default String bootstrapPrompt() {
+        throw new UnsupportedOperationException("부트스트랩 프롬프트를 제공하지 않는다");
+    }
 }

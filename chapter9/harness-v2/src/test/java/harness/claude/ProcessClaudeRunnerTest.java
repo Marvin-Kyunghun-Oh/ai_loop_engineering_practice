@@ -2,6 +2,7 @@ package harness.claude;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import harness.policy.Role;
@@ -66,6 +67,44 @@ class ProcessClaudeRunnerTest {
 
         assertEquals(List.of("claude", "-p", "--output-format", "json", "--model", "opus",
                 "--max-budget-usd", "0.50", "--allowedTools", "Read"), command);
+    }
+
+    @Test
+    @DisplayName("대화형 명령줄: 시스템 프롬프트는 파일로, -p와 예산 옵션은 없다")
+    void buildInteractiveCommand() {
+        ProcessClaudeRunner runner = new ProcessClaudeRunner("claude");
+        AgentRequest planner = new AgentRequest(Role.PLANNER, "p", "opus", List.of("Read", "Write(docs/**)"),
+                List.of("Bash"), false, new BigDecimal("5"), null, Duration.ofMinutes(30), workDir, rawLog);
+
+        List<String> command = runner.buildInteractiveCommand(planner, Path.of("sys.md"));
+
+        assertEquals(List.of("claude", "--model", "opus", "--append-system-prompt-file", "sys.md",
+                "--allowedTools", "Read", "Write(docs/**)", "--disallowedTools", "Bash"), command);
+    }
+
+    @Test
+    @DisplayName("대화형 실행: 프롬프트 파일을 만들고, 작업 폴더에서 인자 그대로 실행하고, 끝날 때까지 기다린다")
+    void runInteractive() throws Exception {
+        ProcessClaudeRunner runner = new ProcessClaudeRunner(fakeClaude("interactive").toString());
+        String prompt = "# 부트스트랩 한글 프롬프트 ".repeat(3);
+        AgentRequest request = request(prompt, Duration.ofMinutes(1));
+
+        runner.runInteractive(request);
+
+        Path promptFile = ProcessClaudeRunner.promptFileFor(rawLog);
+        assertEquals(prompt, Files.readString(promptFile, StandardCharsets.UTF_8));
+        assertEquals(runner.buildInteractiveCommand(request, promptFile).subList(1, 7),
+                Files.readAllLines(recordDir.resolve("args.txt"), StandardCharsets.UTF_8).subList(0, 6));
+        assertEquals(workDir.toRealPath(), Path.of(Files.readString(recordDir.resolve("cwd.txt"))).toRealPath());
+    }
+
+    @Test
+    @DisplayName("대화형 실행: 실행 파일이 없으면 IllegalStateException")
+    void runInteractiveMissingExecutable() {
+        ProcessClaudeRunner runner = new ProcessClaudeRunner(workDir.resolve("no-such-claude.exe").toString());
+
+        assertThrows(IllegalStateException.class,
+                () -> runner.runInteractive(request("p", Duration.ofMinutes(1))));
     }
 
     @Test

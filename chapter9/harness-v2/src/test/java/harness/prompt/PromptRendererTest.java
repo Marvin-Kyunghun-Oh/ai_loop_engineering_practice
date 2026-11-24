@@ -159,9 +159,10 @@ class PromptRendererTest {
         @Test
         @DisplayName("planner_bootstrap: 변수 없이 읽히고 JOURNAL 쓰기 지시가 없다")
         void bootstrap() {
-            String prompt = PromptRenderer.render("planner_bootstrap.md",
-                    PromptRenderer.loadTemplate("planner_bootstrap.md"), Map.of());
+            String prompt = renderer.bootstrapPrompt();
 
+            assertTrue(prompt.contains("PRD 부트스트랩"));
+            assertFalse(prompt.contains("{{"));
             assertFalse(prompt.contains("JOURNAL.md 마지막 줄"));
         }
     }

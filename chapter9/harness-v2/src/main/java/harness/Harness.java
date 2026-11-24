@@ -35,10 +35,7 @@ import java.util.Optional;
  *
  * <p>판단(계획·구현·채점)은 에이전트가 한다. 하네스는 순서, 비용 기록, JOURNAL, 예산 차단, 실패 처리를 맡는다.
  *
- * <p>아직 연결하지 않은 것 (DESIGN 8절)
- * <ul>
- *   <li>10단계 Bootstrap: PRD가 없을 때의 대화형 planner. 지금은 PRD가 없으면 종료한다</li>
- * </ul>
+ * <p>PRD가 없으면 먼저 {@link Bootstrap}으로 사용자와 대화하며 PRD를 쓴다. 그래도 없으면 종료한다.
  */
 public final class Harness {
 
@@ -54,6 +51,7 @@ public final class Harness {
     private final ToolPolicy toolPolicy;
     private final JournalWriter journal;
     private final DecisionResolver decisions;
+    private final Bootstrap bootstrap;
     private final ReviewStore reviews;
     private final Clock clock;
     private final PrintStream console;
@@ -76,6 +74,7 @@ public final class Harness {
         this.toolPolicy = new ToolPolicy(config.permissions());
         this.journal = new JournalWriter(files.journal(), clock);
         this.decisions = new DecisionResolver(files);
+        this.bootstrap = new Bootstrap(config, files, runner, prompts, this::log);
         this.reviews = new ReviewStore(files.reviewsCsv());
         this.clock = clock;
         this.console = console;
@@ -91,8 +90,8 @@ public final class Harness {
             log("docs/HALT가 있다. 내용을 확인하고 파일을 지운 뒤 다시 실행한다.");
             return EXIT_HALT;
         }
-        if (!Files.exists(files.prd())) {
-            log("docs/PRD.md가 없다. (대화형 부트스트랩은 아직 구현되지 않았다: DESIGN 8절 10단계)");
+        if (!bootstrap.run()) {
+            log("docs/PRD.md가 작성되지 않았다. 종료한다.");
             return EXIT_HALT;
         }
 

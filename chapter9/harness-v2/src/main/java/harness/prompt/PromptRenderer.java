@@ -48,8 +48,13 @@ public final class PromptRenderer implements PromptProvider {
         return render(fileName, loadTemplate(fileName), variables(cycle));
     }
 
+    @Override
+    public String bootstrapPrompt() {
+        return render("planner_bootstrap.md", loadTemplate("planner_bootstrap.md"), variables(0));
+    }
+
     /**
-     * 세 역할의 프롬프트를 한 번씩 만들어 본다. 하네스 시작 때 불러, 비용을 쓰기 전에 템플릿 오류를 찾는다.
+     * 세 역할과 부트스트랩의 프롬프트를 한 번씩 만들어 본다. 하네스 시작 때 불러, 비용을 쓰기 전에 템플릿 오류를 찾는다.
      *
      * @throws PromptException 프롬프트 파일이 없거나 모르는 변수가 있을 때
      */
@@ -57,6 +62,7 @@ public final class PromptRenderer implements PromptProvider {
         for (Role role : Role.values()) {
             promptFor(role, 1);
         }
+        bootstrapPrompt();
     }
 
     /** 템플릿의 변수를 모두 치환한다. 모르는 변수는 모아서 한 번에 알려 준다. */

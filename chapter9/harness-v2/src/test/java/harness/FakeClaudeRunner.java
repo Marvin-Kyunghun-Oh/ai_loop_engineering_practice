@@ -34,6 +34,8 @@ final class FakeClaudeRunner implements ClaudeRunner {
     private final ProjectFiles files;
     private final Deque<Step> steps = new ArrayDeque<>();
     private final List<AgentRequest> requests = new ArrayList<>();
+    private final List<AgentRequest> interactiveRequests = new ArrayList<>();
+    private Consumer<ProjectFiles> interactiveSideEffect = ignored -> { };
 
     FakeClaudeRunner(ProjectFiles files) {
         this.files = files;
@@ -64,7 +66,18 @@ final class FakeClaudeRunner implements ClaudeRunner {
 
     @Override
     public void runInteractive(AgentRequest request) {
-        fail("부트스트랩은 아직 구현하지 않았다");
+        interactiveRequests.add(request);
+        interactiveSideEffect.accept(files);
+    }
+
+    /** 대화형 실행(부트스트랩)이 끝날 때 남길 파일. 정하지 않으면 아무것도 남기지 않는다. */
+    FakeClaudeRunner onInteractive(Consumer<ProjectFiles> sideEffect) {
+        this.interactiveSideEffect = sideEffect;
+        return this;
+    }
+
+    List<AgentRequest> interactiveRequests() {
+        return interactiveRequests;
     }
 
     List<AgentRequest> requests() {

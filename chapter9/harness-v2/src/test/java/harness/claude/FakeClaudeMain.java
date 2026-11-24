@@ -23,13 +23,16 @@ public final class FakeClaudeMain {
         Files.writeString(record.resolve("pid.txt"), Long.toString(ProcessHandle.current().pid()));
         Files.writeString(record.resolve("args.txt"), String.join("\n", args), StandardCharsets.UTF_8);
         Files.writeString(record.resolve("cwd.txt"), Path.of("").toAbsolutePath().toString(), StandardCharsets.UTF_8);
-        Files.write(record.resolve("stdin.txt"), System.in.readAllBytes());
+        if (!"interactive".equals(System.getenv("FAKE_CLAUDE_MODE"))) {
+            Files.write(record.resolve("stdin.txt"), System.in.readAllBytes());   // 대화형은 표준 입력을 읽지 않는다
+        }
 
         switch (System.getenv("FAKE_CLAUDE_MODE")) {
             case "success" -> {
                 System.out.write(Files.readAllBytes(Path.of(System.getenv("FAKE_CLAUDE_STDOUT"))));
                 System.out.flush();
             }
+            case "interactive" -> { }   // 인자만 기록하고 바로 끝낸다
             case "sleep" -> Thread.sleep(120_000);
             case "garbage" -> {
                 System.out.print("not json");

@@ -17,6 +17,7 @@ import harness.config.ConfigLoader;
 import harness.config.HarnessConfig;
 import harness.cost.UsageRecord;
 import harness.policy.Role;
+import harness.prompt.PromptProvider;
 import harness.state.ProjectFiles;
 import harness.state.TextFiles;
 import java.io.ByteArrayOutputStream;
@@ -332,14 +333,43 @@ class HarnessTest {
         }
 
         @Test
-        @DisplayName("PRD가 없으면 실행하지 않는다 (부트스트랩은 10단계)")
-        void noPrd() throws IOException {
+        @DisplayName("PRD가 없으면 대화형 부트스트랩을 하고, 끝나도 PRD가 없으면 루프를 돌지 않고 종료한다")
+        void noPrdAfterBootstrap() throws IOException {
             Files.delete(files.prd());
 
             int exit = harness(config()).run();
 
             assertEquals(Harness.EXIT_HALT, exit);
+            assertEquals(1, runner.interactiveRequests().size());
             assertEquals(List.of(), runner.calledRoles());
+        }
+
+        @Test
+        @DisplayName("부트스트랩이 PRD를 쓰면 이어서 루프를 돈다")
+        void bootstrapWritesPrd() throws IOException {
+            Files.delete(files.prd());
+            runner.onInteractive(f -> TextFiles.write(f.prd(), "# PRD" + System.lineSeparator()))
+                    .expect(Role.PLANNER, writeDone(), success("0.1", "끝"));
+
+            int exit = harness(config()).run();
+
+            assertEquals(Harness.EXIT_OK, exit);
+            AgentRequest bootstrap = runner.interactiveRequests().get(0);
+            assertEquals(Role.PLANNER, bootstrap.role());
+            assertEquals("opus", bootstrap.model());
+            assertEquals(List.of("Bash"), bootstrap.disallowedTools());
+            assertEquals(files.root(), bootstrap.workDir());
+            assertEquals(files.logsDir().resolve("bootstrap.json"), bootstrap.rawLogFile());
+        }
+
+        @Test
+        @DisplayName("PRD가 이미 있으면 부트스트랩을 하지 않는다")
+        void prdExists() {
+            runner.expect(Role.PLANNER, writeDone(), success("0.1", "끝"));
+
+            harness(config()).run();
+
+            assertEquals(List.of(), runner.interactiveRequests());
         }
     }
 
@@ -527,7 +557,17 @@ class HarnessTest {
 
     private Harness harness(HarnessConfig config) {
         return new Harness(config, files, runner,
-                (role, cycle) -> "prompt:" + role.id() + ":c" + cycle,
+                new PromptProvider() {
+                    @Override
+                    public String promptFor(Role role, int cycle) {
+                        return "prompt:" + role.id() + ":c" + cycle;
+                    }
+
+                    @Override
+                    public String bootstrapPrompt() {
+                        return "prompt:bootstrap";
+                    }
+                },
                 FIXED_CLOCK, new PrintStream(console, true, StandardCharsets.UTF_8));
     }
 
