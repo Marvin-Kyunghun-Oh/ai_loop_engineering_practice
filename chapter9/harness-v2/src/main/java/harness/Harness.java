@@ -2,7 +2,10 @@ package harness;
 
 import harness.claude.AgentRequest;
 import harness.claude.AgentResult;
+import harness.archive.TaskArchiver;
+import harness.archive.TaskArchiver.ArchivedMilestone;
 import harness.claude.ClaudeRunner;
+import harness.claude.Outcome;
 import harness.config.HarnessConfig;
 import harness.config.HarnessConfig.Limits;
 import harness.cost.CostLedger;
@@ -11,8 +14,13 @@ import harness.journal.JournalWriter;
 import harness.policy.Role;
 import harness.policy.ToolPolicy;
 import harness.prompt.PromptProvider;
+import harness.review.ReviewBlock;
+import harness.review.ReviewParser;
+import harness.review.ReviewRecord;
+import harness.review.ReviewStore;
 import harness.state.HaltNotice;
 import harness.state.ProjectFiles;
+import harness.state.TextFiles;
 import harness.state.Timestamps;
 import java.io.PrintStream;
 import java.math.BigDecimal;
@@ -29,7 +37,6 @@ import java.util.Optional;
  *
  * <p>아직 연결하지 않은 것 (DESIGN 8절)
  * <ul>
- *   <li>9단계 TaskArchiver, reviews.csv: 사이클 시작의 아카이브, evaluator 판정을 JOURNAL에 덧붙이기</li>
  *   <li>10단계 Bootstrap: PRD가 없을 때의 대화형 planner. 지금은 PRD가 없으면 종료한다</li>
  * </ul>
  */
@@ -47,6 +54,7 @@ public final class Harness {
     private final ToolPolicy toolPolicy;
     private final JournalWriter journal;
     private final DecisionResolver decisions;
+    private final ReviewStore reviews;
     private final Clock clock;
     private final PrintStream console;
 
@@ -68,6 +76,7 @@ public final class Harness {
         this.toolPolicy = new ToolPolicy(config.permissions());
         this.journal = new JournalWriter(files.journal(), clock);
         this.decisions = new DecisionResolver(files);
+        this.reviews = new ReviewStore(files.reviewsCsv());
         this.clock = clock;
         this.console = console;
     }
@@ -157,7 +166,7 @@ public final class Harness {
         // 지난 사이클의 CURRENT가 남아 있으면, planner가 새로 쓰지 않아도 generator가 옛 항목으로 돈다.
         files.deleteCurrent();
 
-        // TODO(9단계): TaskArchiver로 끝난 마일스톤을 아카이브한다.
+        archiveClosedMilestones();
 
         Next next = runAgent(Role.PLANNER, cycle, null);
         if (next != Next.CONTINUE) {
@@ -196,7 +205,6 @@ public final class Harness {
             return toCycleEnd(next);
         }
 
-        // TODO(9단계): REVIEW 판정을 .harness/reviews.csv에 저장한다.
         // 합의 불발 3회면 DecisionResolver가 HALT를 쓴다. 에이전트가 쓴 HALT와 같이 카운터를 저장한다(v1과 같음).
         decisions.resolve(cycle).forEach(this::log);
 
@@ -251,7 +259,10 @@ public final class Harness {
 
         // 오류로 끝났어도 비용과 JOURNAL은 남긴다.
         ledger.record(cycle, role, model, result);
-        journal.append(cycle, role, result, null);   // TODO(9단계): evaluator면 REVIEW 판정을 덧붙인다
+        String verdict = role == Role.EVALUATOR && result.outcome() == Outcome.SUCCESS
+                ? recordReview(cycle, taskId)
+                : null;
+        journal.append(cycle, role, result, verdict);
         log("--- " + role.id() + " 종료: " + result.outcome()
                 + " · " + (result.costKnown() ? usd(result.costUsd()) : "$?")
                 + " · 누적 " + usd(ledger.total()) + " / " + usd(limits.maxTotalUsd()) + " ---");
@@ -302,6 +313,56 @@ public final class Harness {
                 yield Next.ABORT_CYCLE;
             }
         };
+    }
+
+    // ---- REVIEW 판정 (DESIGN 4.2), 아카이브 (4.4) ----
+
+    /**
+     * evaluator가 쓴 REVIEW.md의 블록을 읽어 reviews.csv에 저장하고, JOURNAL에 덧붙일 판정을 돌려준다.
+     *
+     * <p>블록을 읽지 못하거나 이번 항목·사이클의 것이 아니면 저장하지 않는다(evaluator가 REVIEW를 새로 쓰지 않았을 때
+     * 지난 REVIEW를 이번 판정으로 착각하지 않도록). 이때는 콘솔에 경고만 남기고 HALT하지 않는다.
+     *
+     * @return 판정(예: {@code PASS 11/12}). 기록하지 못했으면 null
+     */
+    private String recordReview(int cycle, String taskId) {
+        if (!Files.exists(files.review())) {
+            log("경고: evaluator가 docs/REVIEW.md를 남기지 않았다. 판정을 기록하지 않는다.");
+            return null;
+        }
+        Optional<ReviewBlock> parsed = ReviewParser.parse(TextFiles.read(files.review()));
+        if (parsed.isEmpty()) {
+            log("경고: docs/REVIEW.md 맨 위에서 '판정:' 줄을 읽지 못했다. 판정을 기록하지 않는다.");
+            return null;
+        }
+        ReviewBlock block = parsed.get();
+        if (!taskId.equals(block.taskId()) || !Integer.valueOf(cycle).equals(block.cycle())) {
+            log("경고: docs/REVIEW.md의 '평가 대상:'이 이번 항목·사이클(" + taskId + ", c" + cycle
+                    + ")과 다르다. 지난 REVIEW로 보고 판정을 기록하지 않는다.");
+            return null;
+        }
+        reviews.save(new ReviewRecord(taskId, cycle, block.verdict(), block.keyDecision()));
+        return block.verdict();
+    }
+
+    /** 사이클 시작 때 끝난 마일스톤을 docs/archive/로 옮긴다. archive를 먼저 쓰고 TASKS.md를 고친다. */
+    private void archiveClosedMilestones() {
+        if (!Files.exists(files.tasks())) {
+            return;
+        }
+        TaskArchiver.Result result = TaskArchiver.archive(TextFiles.read(files.tasks()), reviews.loadLatest());
+        for (ArchivedMilestone milestone : result.archived()) {
+            Path file = files.archiveDir().resolve(milestone.fileName());
+            if (Files.exists(file)) {
+                TextFiles.appendLine(file, "\n" + milestone.toArchiveText().stripTrailing());
+            } else {
+                TextFiles.write(file, "# " + milestone.fileName() + "\n\n" + milestone.toArchiveText());
+            }
+            log("아카이브: M" + milestone.number() + " → docs/archive/" + milestone.fileName());
+        }
+        if (!result.archived().isEmpty()) {
+            TextFiles.write(files.tasks(), result.tasksText());
+        }
     }
 
     // ---- 도우미 ----

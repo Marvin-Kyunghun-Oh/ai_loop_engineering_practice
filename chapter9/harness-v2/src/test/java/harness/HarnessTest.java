@@ -160,6 +160,100 @@ class HarnessTest {
     }
 
     @Nested
+    @DisplayName("REVIEW 판정 기록과 아카이브 (9단계)")
+    class ReviewAndArchive {
+
+        private Consumer<ProjectFiles> writeReview(String block) {
+            return f -> TextFiles.write(f.review(), block);
+        }
+
+        private static final String REVIEW_C1 = """
+                판정: PASS 11/12
+                핵심 결정: 깊이는 태그별
+                메모: 없음
+
+                평가 대상: T1 · 사이클 1 · 2026-11-24T12:26:46+09:00
+                """;
+
+        @Test
+        @DisplayName("evaluator의 REVIEW 판정을 JOURNAL 줄 끝에 붙이고 reviews.csv에 저장한다")
+        void verdictRecorded() {
+            runner.expect(Role.PLANNER, writeCurrent("T1"), success("0.1", "x"))
+                    .expect(Role.GENERATOR, success("0.1", "x"))
+                    .expect(Role.EVALUATOR, writeReview(REVIEW_C1), success("0.1", "T1 PASS 11/12"));
+
+            harness(config("max_iterations: 50", "max_iterations: 1")).run();
+
+            List<String> journal = lines(files.journal());
+            assertTrue(journal.get(2).endsWith(" · success · PASS 11/12"), journal.get(2));
+            assertFalse(journal.get(1).contains("PASS"), "generator 줄에는 판정을 붙이지 않는다");
+            assertEquals(List.of("task_id,cycle,verdict,key_decision", "T1,1,PASS 11/12,깊이는 태그별"),
+                    lines(files.reviewsCsv()));
+        }
+
+        @Test
+        @DisplayName("지난 사이클의 REVIEW가 그대로 남아 있으면(평가 대상 사이클이 다름) 기록하지 않는다")
+        void staleReviewIgnored() {
+            TextFiles.write(files.review(), REVIEW_C1.replace("사이클 1", "사이클 0"));
+            runner.expect(Role.PLANNER, writeCurrent("T1"), success("0.1", "x"))
+                    .expect(Role.GENERATOR, success("0.1", "x"))
+                    .expect(Role.EVALUATOR, success("0.1", "T1 평가"));
+
+            harness(config("max_iterations: 50", "max_iterations: 1")).run();
+
+            assertFalse(lines(files.journal()).get(2).contains("PASS 11/12"));
+            assertFalse(Files.exists(files.reviewsCsv()));
+            assertTrue(console.toString(StandardCharsets.UTF_8).contains("경고: docs/REVIEW.md의 '평가 대상:'"));
+        }
+
+        @Test
+        @DisplayName("evaluator가 REVIEW를 남기지 않아도 HALT하지 않고 경고만 한다")
+        void missingReviewOnlyWarns() {
+            runner.expect(Role.PLANNER, writeCurrent("T1"), success("0.1", "x"))
+                    .expect(Role.GENERATOR, success("0.1", "x"))
+                    .expect(Role.EVALUATOR, success("0.1", "T1 평가"));
+
+            int exit = harness(config("max_iterations: 50", "max_iterations: 1")).run();
+
+            assertEquals(Harness.EXIT_OK, exit);
+            assertFalse(files.isHalted());
+            assertEquals(1, files.readCycleCount());
+        }
+
+        @Test
+        @DisplayName("사이클 시작 때 끝난 마일스톤을 archive로 옮기고 TASKS.md에 요약 줄을 남긴다")
+        void archivesAtCycleStart() {
+            TextFiles.write(files.tasks(), """
+                    ## M1. 기반
+
+                    - [x] T1. 설정 로더
+                      - 내용
+
+                    ## M2. 수집
+
+                    - [ ] T2. 피드
+                    """);
+            TextFiles.write(files.reviewsCsv(),
+                    "task_id,cycle,verdict,key_decision\nT1,1,PASS 11/12,깊이는 태그별\n");
+            runner.expect(Role.PLANNER, writeDone(), success("0.1", "끝"));
+
+            harness(config()).run();
+
+            assertEquals("""
+                    ## M1. 기반
+
+                    - [x] T1. 설정 로더 — PASS 11/12 · 결정: 깊이는 태그별 · 상세: archive/TASKS-M1.md#T1
+
+                    ## M2. 수집
+
+                    - [ ] T2. 피드
+                    """, TextFiles.read(files.tasks()));
+            String archive = TextFiles.read(files.archiveDir().resolve("TASKS-M1.md"));
+            assertTrue(archive.startsWith("# TASKS-M1.md\n\n## M1. 기반\n\n- [x] T1. 설정 로더\n  - 내용\n"), archive);
+        }
+    }
+
+    @Nested
     @DisplayName("결정 합의 (DecisionResolver 연결)")
     class Decisions {
 

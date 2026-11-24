@@ -1,7 +1,7 @@
 # STATUS
 
 - 갱신: 2026-11-24
-- 단계: **구현 중** (DESIGN 8절 1~8단계 완료, 테스트 143개 통과(실제 claude 확인 3개는 평소 건너뜀). 다음은 9단계)
+- 단계: **구현 중** (DESIGN 8절 1~9단계 완료, 테스트 170개 통과(실제 claude 확인 3개는 평소 건너뜀). 다음은 10단계)
 
 ## 완료
 - v1 rss-wiki 실행을 중단하고 기록을 남겼다(0001). 브랜치 `feat/chap9-harness-setup`, 커밋 `8e03550`, `b8ec582`.
@@ -73,10 +73,20 @@
     1. 선택 파일의 라벨이 비어 있으면(`선택:`만 있음) 미기록으로 본다. v1은 빈 라벨끼리 "합의"로 봤다.
     2. 한 주제에서 HALT를 쓰면 나머지 주제는 판정하지 않는다. v1은 계속 봤다.
   - 합의 불발 HALT는 4.7의 네 줄 형식이고, `상세`에 planner·evaluator의 선택 전문을 담는다. 에이전트가 쓴 HALT와 같이 카운터를 저장한다(v1과 같음).
+- **9단계 완료**: `review`(`ReviewParser`, `ReviewBlock`, `ReviewRecord`, `ReviewStore`), `archive`(`TaskArchiver`). 새 테스트 27개(`ReviewParserTest` 7, `ReviewStoreTest` 5, `TaskArchiverTest` 11, `HarnessTest` 4).
+  - 연결: evaluator가 성공하면 REVIEW.md 블록을 읽어 `.harness/reviews.csv`에 저장하고 JOURNAL 줄 끝에 판정을 붙인다. 사이클 시작 때 `TaskArchiver`로 아카이브한다(DONE·CURRENT 삭제 직후, planner 실행 전).
+  - 구현하며 정한 동작 (`DESIGN.md` 4.4에 반영). 사용자 확인이 필요하면 되돌린다.
+    1. **지난 REVIEW 방어**: REVIEW의 `평가 대상:` 줄이 이번 항목 ID·사이클과 다르면(또는 줄이 없으면) 기록하지 않고 콘솔에 경고만 한다. HALT하지 않는다. evaluator가 REVIEW를 새로 쓰지 않았을 때 지난 판정을 이번 것으로 착각하지 않게 하기 위해서다. 대신 평가 대상 줄을 빼먹으면 그 항목은 요약 줄에 `-`로 남는다. 스모크 테스트에서 evaluator가 이 줄을 잘 쓰는지 본다.
+    2. **reviews.csv**: `task_id,cycle,verdict,key_decision`. 같은 항목을 다시 평가하면 줄이 늘고 마지막 줄이 이긴다. 쉼표·큰따옴표는 큰따옴표로 감싼다. 깨진 줄은 USAGE.csv처럼 예외를 던진다.
+    3. **요약 줄 판별**: 항목 줄 하나뿐이고 `상세: archive/`가 든 항목을 이미 옮긴 것으로 본다. 그래서 반복 호출해도 결과가 같다. 이미 옮긴 섹션에 새 완료 항목이 생기면 그 항목만 옮긴다.
+    4. 항목 ID가 없는 항목(`- [x] 설정 로더`)이 있거나, `## M{n}.` 형식이 아닌 `##` 섹션은 옮기지 않는다.
+    5. archive 파일은 `docs/archive/TASKS-M{n}.md`. 새 파일은 `# TASKS-M{n}.md` 제목과 `## M{n}. 제목` 아래에 항목 상세를 쓰고, 이미 있으면 뒤에 덧붙인다. archive를 먼저 쓰고 TASKS.md를 고친다. 그 사이에 멈추면 같은 항목이 archive에 두 번 들어갈 수 있다(손실은 없다).
+    6. CRLF/LF와 끝 줄바꿈 유무는 입력을 따른다.
+  - REVIEW 메모를 BACKLOG에 옮기는 일은 planner의 몫이라 하네스는 읽지 않는다.
 
 ## 다음 할 일 (순서대로)
 1. **구현**: `DESIGN.md` 8절의 11단계를 따른다. 11단계는 스모크 테스트이고, 0007의 비용 보정도 이 단계에서 한다.
-   - 다음: 9단계 `TaskArchiver`, `reviews.csv`. REVIEW 블록 파싱은 위 7단계 형식 세부 1을 따른다. `Harness`의 `TODO(9단계)` 두 곳(아카이브, reviews.csv)과 JOURNAL 판정 덧붙이기를 연결한다.
+   - 다음: 10단계. 위험 명령 차단 훅 확인(C2)과 `Bootstrap`(`runInteractive`). 아래 "10단계에서 검토할 것"을 먼저 본다. Bash 허용 목록 훅을 이번에 만들지 미룰지는 사용자가 정한다.
    - 각 단계가 끝날 때마다 `./gradlew test` 통과를 확인하고 이 파일을 갱신한다.
    - `DESIGN.md` 9절의 확인 항목은 해당 단계에서 확인한다.
 2. **실제 대상 프로젝트 실행**: 대상 프로젝트가 정해지면(0004) 돌린다. 비용 보정은 스모크 테스트에서 끝냈을 것이므로 보정된 상한을 쓴다.
