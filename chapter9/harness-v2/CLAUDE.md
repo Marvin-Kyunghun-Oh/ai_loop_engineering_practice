@@ -7,7 +7,8 @@ v1 3-Agent 루프 하네스(`chapter9/harness`, Python)를 **Java 개발자가 �
 1. `docs/STATUS.md`: 지금 어디까지 했고 다음에 무엇을 할지
 2. `docs/decisions/README.md`: 사용자와 합의한 결정 목록(0001~). 결정의 이유는 각 파일에 있다
 3. `docs/IMPROVEMENTS.md`: v1 결함과 v2 개선 항목(A1~D5), 우선순위(4절), 미확인 항목(6절)
-4. v1 원본(필요할 때)
+4. `docs/DESIGN.md`: v2 클래스 구조, `harness.yml` 스키마, 하네스와 프롬프트가 공유하는 파일 형식(4절), 메인 루프, 테스트, 구현 순서
+5. v1 원본(필요할 때)
    - `chapter9/harness/src/harness/run.py`: 루프, `DONE`/`HALT`, 결정 합의
    - `chapter9/harness/src/harness/prompts/*.md`: planner, generator, evaluator, planner_bootstrap 프롬프트
    - `chapter9/projects/rss-wiki/docs/`: v1 실행 기록(JOURNAL, REVIEW, TASKS)
@@ -28,6 +29,7 @@ Gradle, JDK 21, Jackson(JSON과 YAML), 설정 파일 `harness.yml`. 근거는 `d
 - **비용에 민감하다.**
   - 사용자는 Pro 플랜에 남은 크레딧이 한정적이다.
   - `claude -p` 실행처럼 사용량을 쓰는 작업은 미리 알리고 진행한다.
+  - **비용 때문에 범위나 검증을 줄이고 싶으면 스스로 정하지 않는다.** 비용과 효과(무엇을 못 확인하게 되는지)를 함께 보여 주고 사용자의 결정을 받는다(0011).
   - 서브에이전트는 요청이 있을 때만 쓴다.
 - **Git**
   - 브랜치: `feat/chap9-harness-v2`. `feat/chap9-harness-setup`에서 분기했고, 둘 다 main에 병합하지 않았다.
