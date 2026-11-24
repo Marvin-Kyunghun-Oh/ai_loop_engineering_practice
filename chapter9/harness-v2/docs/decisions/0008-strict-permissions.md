@@ -10,6 +10,7 @@
 
 ## 결정
 역할별 허용 목록을 `harness.yml`에서 생성해 `--allowedTools`로 넘긴다. 목록에 없는 것은 `--disallowedTools`로 막는다.
+- 보완(2026-11-24 확인 결과): `--disallowedTools Bash`는 허용 패턴보다 우선해 허용 명령까지 막는다. 그래서 Bash 패턴이 있는 역할은 허용 목록만 넘기고, 패턴이 없는 역할(planner)만 `--disallowedTools Bash`를 받는다. 아래 "확인 결과"를 본다.
 
 | 역할 | Bash 허용 범위 |
 |---|---|
@@ -43,4 +44,16 @@ permissions:
 ## 영향과 위험
 - 필요한 명령이 막혀 BLOCKED가 늘 수 있다. 예: 파일 검색, 특정 스크립트 실행.
 - **완화**: BLOCKED 사유에 "허용 목록에 없는 명령"이 반복되면 `harness.yml`의 허용 목록을 넓힌다. 넓히는 판단은 사람이 한다.
-- 허용 패턴의 정확한 문법(`Bash(명령:*)`)은 구현 시 CLI 문서로 확인한다.
+- 허용 패턴의 정확한 문법(`Bash(명령:*)`)은 구현 시 CLI 문서로 확인한다. → 확인함(아래).
+- **엄격함의 한계(확인함)**: 읽기 전용 명령(`whoami` 등)은 허용 목록에 없어도 실행된다. 파일을 바꾸는 명령은 막히므로 "evaluator가 코드를 고치는 구멍"은 닫힌다. 다만 "허용한 명령만 실행된다"는 아니다.
+
+## 확인 결과 (2026-11-24)
+haiku로 4회 실행해 확인했다. 비용은 합계 약 $0.014다. 확인 코드는 `src/test/java/harness/claude/RealClaudeCheckTest.java`이고, 평소에는 건너뛴다(`HARNESS_REAL_CLAUDE=1`일 때만 실행).
+
+| 설정 | 요청한 명령 | 결과 |
+|---|---|---|
+| allowed `Bash(echo:*)` + disallowed `Bash` | `echo harness-ok` | **막힘**. Bash 도구 자체가 빠져 `permission_denials`에도 남지 않음 |
+| allowed `Bash(echo:*)`만 | `echo harness-ok` | 실행됨 (패턴 문법 `Bash(명령:*)` 확인) |
+| allowed `Bash(echo:*)`만 | `touch should-not-exist.txt` | **거부됨**. 파일 생성 안 됨, `permission_denials`에 기록 |
+| allowed `Bash(echo:*)`만 | `whoami` | **실행됨**. 사용자 설정에 허용 규칙이 없으므로 CLI가 읽기 전용 명령을 자동 허용하는 것으로 보인다 |
+

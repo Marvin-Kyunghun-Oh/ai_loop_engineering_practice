@@ -27,3 +27,4 @@
 
 ## 영향
 - Jackson은 모르는 키를 무시(`@JsonIgnoreProperties(ignoreUnknown = true)`)하게 한다. 필수 키가 없으면 예외를 던진다(0007).
+  - 보완(0012): 이 문장은 결과 JSON에 대한 것이다. `harness.yml`은 모르는 키가 있으면 시작을 거부한다.

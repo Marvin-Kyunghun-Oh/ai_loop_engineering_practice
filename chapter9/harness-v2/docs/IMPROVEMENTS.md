@@ -89,7 +89,7 @@ v2의 목표는 **Java 개발자가 읽고 고칠 수 있는 하네스**다. 기
   | 용도 | 필드 | 값의 예 |
   |---|---|---|
   | 비용 | `total_cost_usd` | `0.00271608` |
-  | 토큰 | `usage.input_tokens`, `usage.cache_creation_input_tokens`, `usage.cache_read_input_tokens`, `usage.output_tokens` | `2`, `12718`, `15028`, `44` |
+  | 토큰 | `modelUsage.{모델}.inputTokens`, `cacheCreationInputTokens`, `cacheReadInputTokens`, `outputTokens`의 합 (없으면 `usage.*_tokens`). 예산 상한에 걸리면 `usage`는 0으로 나온다 (0012) | `2`, `12718`, `15028`, `44` |
   | 모델별 | `modelUsage.{모델}.costUSD`, `costBasis` | `"claude-haiku-5-5"`, `"list"` |
   | 오류 여부 | `is_error` | `false` / `true` |
   | 종료 사유 | `subtype` | `success`, `error_max_budget_usd`, `error_max_turns` |
@@ -304,5 +304,6 @@ v2의 목표는 **Java 개발자가 읽고 고칠 수 있는 하네스**다. 기
 - [x] JSON 결과의 토큰·비용·오류·종료 사유 필드명 (A2의 필드 표, 샘플은 `src/test/resources/claude-result/`)
 - [x] `--max-budget-usd` 도달 시: `subtype: error_max_budget_usd`, `is_error: true`, 종료 코드 `1`. 상한을 턴 1회분 넘긴 뒤 멈춤
 - [x] `--max-turns` 도달 시: `subtype: error_max_turns`, `is_error: true`, 종료 코드 `1`
+- [x] 프롬프트를 표준 입력으로 전달 (9,300자 확인), `--disallowedTools`가 허용 패턴보다 우선, 허용 목록 밖 쓰기 명령은 거부·읽기 전용 명령은 통과 (0008 확인 결과)
 - [ ] 사용량 한도 도달 시 `claude -p`의 출력 형태 (B1 판정 기준). 일부러 재현할 수 없다. 처음 발생할 때 `logs/`의 원본(D2)으로 확인하고 샘플에 추가한다. 그 전까지는 "알 수 없는 `error_*`"로 처리한다
 - [ ] 첫 실행 보정: 크레딧 감소량과 `USAGE.csv` 합계를 비교한다. 스모크 테스트(0011)로 하고, Pro 한도를 다 쓴 상태에서 해야 비교가 된다 (A2, 0007)

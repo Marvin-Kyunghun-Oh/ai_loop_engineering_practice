@@ -1,0 +1,32 @@
+# 테스트용 정상 설정. DESIGN 3절의 예시와 같다.
+claude:
+  path: claude
+
+models:
+  planner: opus
+  generator: sonnet
+  evaluator: sonnet
+
+limits:
+  max_iterations: 50
+  max_total_usd: 38
+  max_agent_usd: 5
+  max_turns: null
+  agent_timeout_min: 30
+  backlog_per_milestone: 2
+  max_consecutive_errors: 2
+
+commands:
+  test: "./gradlew test"
+  test_path: "./gradlew test --tests {path}"
+  build: "./gradlew build"
+  add_dependency: "build.gradle의 dependencies 블록에 추가한다"
+
+permissions:
+  generator_bash:
+    - "Bash(./gradlew build:*)"
+    - "Bash(./gradlew test:*)"
+    - "Bash(git status:*)"
+    - "Bash(git diff:*)"
+  evaluator_bash:
+    - "Bash(./gradlew test:*)"

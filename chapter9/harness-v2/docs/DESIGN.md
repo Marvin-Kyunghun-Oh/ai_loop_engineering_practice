@@ -233,7 +233,7 @@ public record AgentResult(
     Outcome outcome, String subtype, BigDecimal costUsd, TokenUsage usage,
     int numTurns, long durationMs, String summary, List<String> errors) {}
 
-public enum Outcome { SUCCESS, BUDGET_LIMIT, TURN_LIMIT, ERROR, TIMEOUT }
+public enum Outcome { SUCCESS, BUDGET_LIMIT, TURN_LIMIT, INVALID_RESULT, ERROR, TIMEOUT }
 ```
 - `ResultParser`는 결과 JSON을 `AgentResult`로 바꾼다. 판정 규칙(B1)은 다음과 같다.
 
@@ -242,20 +242,26 @@ public enum Outcome { SUCCESS, BUDGET_LIMIT, TURN_LIMIT, ERROR, TIMEOUT }
   | `subtype == "success"` 이고 `is_error == false` | `SUCCESS` |
   | `subtype == "error_max_budget_usd"` | `BUDGET_LIMIT` |
   | `subtype == "error_max_turns"` | `TURN_LIMIT` |
+  | JSON 객체이지만 필수 필드가 없거나 `type != "result"` | `INVALID_RESULT` (즉시 HALT, 0012) |
   | 그 밖의 `error_*`, `api_error_status != null`, JSON이 없거나 파싱 실패 | `ERROR` |
   | 프로세스가 타임아웃으로 종료됨 | `TIMEOUT` (Runner가 직접 만듦) |
 
-- 필수 필드는 `type`, `subtype`, `is_error`, `total_cost_usd`, `usage`다. 하나라도 없으면 `ERROR`로 처리한다. 비용을 0으로 처리하지 않는다(0007의 "필드 누락 처리").
+- 필수 필드는 `type`, `subtype`, `is_error`, `total_cost_usd`, `usage`다. 하나라도 없으면 `INVALID_RESULT`로 처리한다. 비용을 0으로 처리하지 않는다(0007의 "필드 누락 처리", 0012).
+- 토큰은 `modelUsage`의 모델별 값을 합산한다. 없으면 `usage`를 쓴다(0012).
 - 종료 코드는 판정에 쓰지 않는다. 상한 도달과 오류가 모두 `1`이기 때문이다(확인함).
 
 ### 5.2 `ProcessClaudeRunner`
 - `ProcessBuilder`로 `claude -p --output-format json --model ... --allowedTools ... --disallowedTools ... --max-budget-usd ... [--max-turns ...] [--permission-mode acceptEdits]`를 실행한다.
 - **프롬프트는 명령줄 인자가 아니라 표준 입력으로 넘긴다.** Windows에서 `claude.cmd`는 `cmd.exe`를 거치는데, `cmd.exe`의 명령줄 길이 한도는 약 8,000자다. 템플릿을 치환한 프롬프트가 이 한도를 넘을 수 있다. `claude -p`가 표준 입력에서 프롬프트를 읽는지는 구현 첫 단계에서 확인한다. 안 되면 인자 방식으로 두고 길이를 검사한다.
+- 6단계 확인: 표준 입력으로 받는다(9,300자 프롬프트로 확인). 넘긴 프롬프트는 `.harness/logs/c{N}-{role}.prompt.md`에 남는다. 스모크 테스트에서 치환되지 않은 `{{...}}`를 이 파일로 검사한다.
 - 표준 출력은 전부 `rawLogFile`(`.harness/logs/c{N}-{role}.json`)에 저장한 뒤 파싱한다(D2). 표준 에러는 콘솔로 흘린다.
+- 결과 JSON이 없거나 깨졌을 때만 요약에 종료 코드를 덧붙인다. 원인을 찾는 단서로 쓴다.
 - **타임아웃**: `process.waitFor(timeout)`가 시간을 넘기면 `process.descendants()`까지 모두 `destroyForcibly()`하고 `TIMEOUT`을 반환한다(B2).
 
 ### 5.3 실행 파일 찾기 (Windows)
 - `claude.path`가 `claude`이고 OS가 Windows이면, `PATH`에서 `claude.cmd`, `claude.exe`, `claude` 순으로 찾는다.
+  - 셸과 같은 순서로 찾는다. PATH 앞쪽 폴더가 우선이고, 같은 폴더 안에서는 위 확장자 순서를 따른다.
+  - 참고: 이 PC의 claude는 네이티브 설치판 `claude.exe`다. `.cmd` 경로는 테스트의 가짜 실행기로 확인한다. 괄호·별표·공백이 든 인자가 cmd.exe를 거쳐도 그대로 전달된다.
 - v1은 이 문제로 실패한 적이 있다(커밋 `0c8e5d8`). 그래서 찾는 로직을 별도 메서드로 두고 테스트한다.
 
 ### 5.4 `CostLedger`
@@ -274,7 +280,9 @@ BigDecimal total();
 | generator | `Read Write Edit Glob Grep` + `permissions.generator_bash` | `acceptEdits` |
 | evaluator | `Read Glob Grep Edit(docs/**) Write(docs/**)` + `permissions.evaluator_bash` | |
 
-- 세 역할 모두 `--disallowedTools Bash`로 기본 Bash를 막는다. 허용 패턴만 열린다. 이 조합이 의도대로 동작하는지(금지 목록이 허용 패턴보다 우선하는지)는 구현 시 확인한다. 우선한다면 금지 목록은 비우고 허용 목록만 쓴다.
+- 금지 목록은 Bash 허용 패턴이 없는 역할(planner, 그리고 `evaluator_bash: []`일 때 evaluator)에만 `Bash`를 넣는다. 패턴이 있는 역할은 허용 목록만 넘긴다.
+  - 6단계 확인 결과(0008): `--disallowedTools Bash`가 허용 패턴보다 우선해 허용 명령까지 막는다.
+  - 허용 목록만 주면 목록 밖 쓰기 명령은 거부되고 `permission_denials`에 남는다. 다만 읽기 전용 명령은 통과한다. 그래서 Bash가 아예 없어야 하는 역할은 금지 목록으로 Bash 자체를 뺀다.
 - 변이 검증용 임시 복사본 쓰기 허용(0008)은 첫 구현 범위에서 뺀다. 프롬프트에서 "변이 검증은 acceptance에 명시된 것만"으로 줄였기 때문이다(A3). 필요해지면 추가한다.
 
 ### 5.6 `PromptRenderer` (D3)
@@ -339,11 +347,21 @@ runAgent(role):
   switch result.outcome:
     SUCCESS                     → 계속
     BUDGET_LIMIT, TURN_LIMIT    → 이 사이클 중단, 다음 사이클로. 같은 CURRENT 항목에서 2회 연속이면 HALT
+    INVALID_RESULT              → 즉시 HALT(원본 로그 경로 포함) (0012)
     ERROR, TIMEOUT              → 이 사이클 중단. 연속 max_consecutive_errors회면 HALT(원본 로그 경로 포함)
 ```
 
 - 상한 도달과 오류로 이 사이클을 중단한 경우 `.cycle_count`를 올리지 않는다.
 - 다음 사이클은 같은 번호로 다시 시작한다. 그래서 JOURNAL에 같은 `[c12]`가 두 번 나올 수 있다. 이건 의도한 동작이다.
+- 구현하며 정한 동작 (5단계, 사용자 확인 2026-11-24)
+  1. 사이클 시작 때 `DONE`과 함께 `CURRENT`도 지운다. 지우지 않으면 planner가 새로 쓰지 않아도 지난 항목으로 generator가 돈다.
+  2. 시작할 때 `HALT`가 있으면 아무것도 실행하지 않는다. v1은 planner를 한 번 돌린 뒤에야 멈췄다.
+  3. HALT 후 카운터 처리
+     - 에이전트가 쓴 HALT는 카운터를 저장한다(v1과 같음).
+     - 하네스가 쓴 HALT(예산, 오류 연속, CURRENT, 결과 형식 오류)는 저장하지 않는다.
+  4. 비용을 모르는 실행(TIMEOUT, 결과 JSON 없음)은 누적에 더하지 않는다. 오류가 연속되면 `max_consecutive_errors`회 만에 HALT하므로 놓치는 금액은 작다.
+  5. `CURRENT`의 값이 4.1 형식이 아니면 HALT한다.
+  6. 상한 도달 반복을 판단하는 키는 `CURRENT` 항목 ID다. planner처럼 항목이 정해지기 전이면 역할 이름을 쓴다.
 
 ## 7. 테스트 (JUnit 5)
 
@@ -406,9 +424,9 @@ runAgent(role):
 각 단계가 끝날 때마다 `./gradlew test`가 통과해야 한다. STATUS.md도 그때마다 갱신한다.
 
 ## 9. 구현 시 확인할 것
-- `claude -p`가 표준 입력으로 프롬프트를 받는지 (5.2)
-- `--disallowedTools Bash`와 `--allowedTools "Bash(./gradlew test:*)"`의 우선순위 (5.5)
-- 허용 패턴 문법 `Bash(명령:*)` (0008)
+- [x] `claude -p`가 표준 입력으로 프롬프트를 받는지 (5.2): 받는다
+- [x] `--disallowedTools Bash`와 `--allowedTools "Bash(./gradlew test:*)"`의 우선순위 (5.5): 금지가 이긴다
+- [x] 허용 패턴 문법 `Bash(명령:*)` (0008): 동작한다. 단, 읽기 전용 명령은 목록과 무관하게 통과한다
 - 위험 명령 차단 훅을 대상 프로젝트에 설치하는 방식 (C2). 하네스 시작 시 `.claude/settings.json`에 PreToolUse 훅이 있는지 검사할지, 아니면 하네스가 설정 파일을 넘길지 정해야 한다
 - 대화형 부트스트랩 세션의 비용을 사후에 가져올 방법이 있는지 (4.5)
 - 스모크 테스트 샘플 프로젝트의 빌드·테스트 명령 구성 (7.1)
