@@ -1,7 +1,17 @@
 package harness;
 
+import harness.claude.ClaudeExecutable;
+import harness.claude.ClaudeRunner;
+import harness.claude.ProcessClaudeRunner;
+import harness.config.ConfigException;
+import harness.config.ConfigLoader;
+import harness.config.HarnessConfig;
+import harness.prompt.PromptException;
+import harness.prompt.PromptRenderer;
+import harness.state.ProjectFiles;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Clock;
 
 /**
  * 하네스 진입점.
@@ -10,9 +20,11 @@ import java.nio.file.Path;
  * ./gradlew run --args="../projects/&lt;project&gt;"
  * </pre>
  *
- * 지금은 인자만 검사한다. 메인 루프는 DESIGN 8절 5단계에서 연결한다.
+ * 종료 코드: 0 = DONE 또는 최대 반복 도달, 1 = HALT, 2 = 시작 전 오류(인자, harness.yml, 프롬프트, claude 실행 파일)
  */
 public final class Main {
+
+    private static final int EXIT_STARTUP_ERROR = 2;
 
     private Main() {
     }
@@ -20,16 +32,36 @@ public final class Main {
     public static void main(String[] args) {
         if (args.length != 1) {
             System.err.println("사용법: harness-v2 <대상 프로젝트 경로>");
-            System.exit(2);
+            System.exit(EXIT_STARTUP_ERROR);
         }
 
         Path projectDir = Path.of(args[0]).toAbsolutePath().normalize();
         if (!Files.isDirectory(projectDir)) {
             System.err.println("대상 프로젝트 폴더가 없다: " + projectDir);
-            System.exit(2);
+            System.exit(EXIT_STARTUP_ERROR);
         }
 
-        System.out.println("대상 프로젝트: " + projectDir);
-        System.out.println("메인 루프는 아직 구현되지 않았다.");
+        System.exit(run(projectDir));
+    }
+
+    private static int run(Path projectDir) {
+        ProjectFiles files = new ProjectFiles(projectDir);
+        Clock clock = Clock.systemDefaultZone();
+
+        HarnessConfig config;
+        PromptRenderer prompts;
+        ClaudeRunner runner;
+        try {
+            config = ConfigLoader.load(files.harnessYml());
+            prompts = new PromptRenderer(config, clock);
+            // 비용을 쓰기 전에 템플릿 오류(모르는 변수 등)를 찾는다.
+            prompts.checkTemplates();
+            runner = new ProcessClaudeRunner(ClaudeExecutable.resolve(config.claude().path()));
+        } catch (ConfigException | PromptException | IllegalStateException e) {
+            System.err.println("시작하지 못했다: " + e.getMessage());
+            return EXIT_STARTUP_ERROR;
+        }
+
+        return new Harness(config, files, runner, prompts, clock, System.out).run();
     }
 }
