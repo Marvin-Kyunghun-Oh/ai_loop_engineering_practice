@@ -196,7 +196,8 @@ class ConfigLoaderTest {
             if (in == null) {
                 throw new IllegalStateException("리소스가 없다: " + path);
             }
-            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+            // Windows에서 git(core.autocrlf=true)이 CRLF로 체크아웃해도 테스트의 "\n" 치환이 맞도록 LF로 통일한다.
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8).replace("\r\n", "\n");
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

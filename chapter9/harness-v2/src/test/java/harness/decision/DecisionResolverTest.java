@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import harness.policy.Role;
 import harness.state.ProjectFiles;
 import harness.state.TextFiles;
 import java.nio.file.Files;
@@ -173,6 +174,48 @@ class DecisionResolverTest {
 
     private void choice(String fileName, String text) {
         TextFiles.write(files.decisionsDir().resolve(fileName), text + "\n");
+    }
+
+    @Test
+    @DisplayName("선택 대기 목록: 그 역할의 선택이 없는 주제만 이름순으로 돌려준다")
+    void topicsAwaitingChoice() {
+        choice("storage.md", "# 결정\n후보 A, B");
+        choice("storage.planner.md", "선택: A");
+        choice("cache.md", "# 결정\n후보 A, B");
+
+        assertEquals(List.of("cache"), awaiting(Role.PLANNER));
+        assertEquals(List.of("cache", "storage"), awaiting(Role.EVALUATOR));
+    }
+
+    @Test
+    @DisplayName("선택 대기 목록: 합의된 주제는 빼고, '합의 불발'만 있는 주제는 넣는다")
+    void awaitingChoiceSkipsAgreedTopics() {
+        choice("agreed.md", "# 결정\n\n합의 불발: 1회째\n\n합의: B (시도 2회)");
+        choice("retry.md", "# 결정\n\n합의 불발: 1회째");
+
+        assertEquals(List.of("retry"), awaiting(Role.EVALUATOR));
+    }
+
+    @Test
+    @DisplayName("선택 대기 목록: 첫 줄 형식이 틀린 선택 파일은 아직 기록하지 않은 것으로 본다")
+    void awaitingChoiceTreatsMalformedChoiceAsMissing() {
+        choice("storage.md", "# 결정");
+        choice("storage.evaluator.md", "B가 좋다");
+
+        assertEquals(List.of("storage"), awaiting(Role.EVALUATOR));
+    }
+
+    @Test
+    @DisplayName("선택 대기 목록: 폴더가 없거나 선택하지 않는 역할이면 비어 있다")
+    void awaitingChoiceEmptyCases() {
+        assertEquals(List.of(), awaiting(Role.EVALUATOR));
+
+        choice("storage.md", "# 결정");
+        assertEquals(List.of(), awaiting(Role.GENERATOR));
+    }
+
+    private List<String> awaiting(Role role) {
+        return DecisionResolver.topicsAwaitingChoice(files.decisionsDir(), role);
     }
 
     private void disagree(String name) {

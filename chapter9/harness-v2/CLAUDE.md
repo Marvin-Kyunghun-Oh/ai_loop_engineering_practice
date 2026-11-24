@@ -7,7 +7,7 @@ v1 3-Agent 루프 하네스(`chapter9/harness`, Python)를 **Java 개발자가 �
 README.md의 "1년 뒤 읽는 순서"와 같다.
 1. `README.md`: 폴더 구조, 실행 흐름(메서드 이름 포함). 하네스를 쓰는 방법(새 프로젝트 적용, `harness.yml`, HALT 재개, 완료 확인, 개선)은 `docs/USER_GUIDE.md`에 있다
 2. `docs/STATUS.md`: 지금 어디까지 했고 다음에 무엇을 할지
-3. `docs/decisions/README.md`: 사용자와 합의한 결정 목록(0001~0016). 결정의 이유는 각 파일에 있다
+3. `docs/decisions/README.md`: 사용자와 합의한 결정 목록(0001~0017). 결정의 이유는 각 파일에 있다
 4. `docs/DESIGN.md`: v2 클래스 구조, `harness.yml` 스키마, 하네스와 프롬프트가 공유하는 파일 형식(4절), 메인 루프(6절), 테스트
 5. `docs/IMPROVEMENTS.md`: v1 결함과 v2 개선 항목(A1~D5), 우선순위(4절), 미확인 항목(6절)
 6. v1 원본(필요할 때)
@@ -15,6 +15,7 @@ README.md의 "1년 뒤 읽는 순서"와 같다.
    - `chapter9/harness/src/harness/prompts/*.md`: planner, generator, evaluator, planner_bootstrap 프롬프트
    - `chapter9/projects/rss-wiki/docs/`: v1 실행 기록(JOURNAL, REVIEW, TASKS)
    - `chapter9/projects/pomodoro-todo/docs/`: v2 실행 기록(JOURNAL, USAGE.csv, REVIEW, BACKLOG, TASKS, archive/). v2로 25사이클을 돌려 `DONE`까지 간 사례
+   - `chapter9/projects/loop-check/`: 합의 불발 HALT·재개와 FAIL 재작업을 확인하려고 만든 작은 검증 프로젝트. 시나리오는 `scenario/SCENARIO.md`, 실행 기록은 `docs/`. 15사이클, FAIL은 유도하지 못했다
 
 ## 기술 스택
 Gradle, JDK 21, Jackson(JSON과 YAML), 설정 파일 `harness.yml`. 근거는 `docs/decisions/0003`이다.

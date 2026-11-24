@@ -1,5 +1,6 @@
 package harness.decision;
 
+import harness.policy.Role;
 import harness.state.HaltNotice;
 import harness.state.ProjectFiles;
 import harness.state.TextFiles;
@@ -35,6 +36,7 @@ public final class DecisionResolver {
 
     static final String CHOICE_PREFIX = "선택:";
     static final String FAILED_MARK = "합의 불발";
+    static final String AGREED_PREFIX = "합의:";
 
     private static final String RETRY_GUIDE =
             "합의 불발. 후보를 처음부터 다시 나열하고 장단점을 비교한 뒤 결정하라.";
@@ -101,6 +103,39 @@ public final class DecisionResolver {
         // 선택 파일을 지워 다음 시도도 블라인드로 시작한다.
         TextFiles.deleteIfExists(plannerFile);
         TextFiles.deleteIfExists(evaluatorFile);
+    }
+
+    /**
+     * 주제 {@code topic}의 선택 파일 경로. 프롬프트가 에이전트에게 알려 줄 때 쓴다.
+     *
+     * @param role {@link Role#PLANNER} 또는 {@link Role#EVALUATOR}
+     */
+    public static Path choiceFile(Path decisionsDir, String topic, Role role) {
+        return decisionsDir.resolve(topic + "." + role.id() + ".md");
+    }
+
+    /**
+     * 아직 {@code role}의 선택이 기록되지 않은 주제를 이름순으로 돌려준다. 이미 합의된 주제는 뺀다.
+     *
+     * <p>에이전트가 {@code docs/decisions/}를 스스로 열어 보지 않으면 결정 절차가 시작되지 않는다
+     * (loop-check c7, c8의 evaluator). 그래서 하네스가 프롬프트에 이 목록을 넣어 준다.
+     * 상대편의 선택 내용은 알려 주지 않는다. 블라인드를 지키기 위해 주제 이름만 쓴다.
+     *
+     * @param role {@link Role#PLANNER} 또는 {@link Role#EVALUATOR}. 다른 역할은 선택하지 않으므로 빈 목록
+     */
+    public static List<String> topicsAwaitingChoice(Path decisionsDir, Role role) {
+        if ((role != Role.PLANNER && role != Role.EVALUATOR) || !Files.isDirectory(decisionsDir)) {
+            return List.of();
+        }
+        return listTopics(decisionsDir).stream()
+                .filter(topic -> !isAgreed(decisionsDir.resolve(topic + ".md")))
+                .filter(topic -> readChoice(choiceFile(decisionsDir, topic, role)).isEmpty())
+                .toList();
+    }
+
+    /** 주제 파일에 {@code 합의: {라벨}} 줄이 있으면 이미 정해진 주제다. "합의 불발" 줄은 해당하지 않는다. */
+    private static boolean isAgreed(Path topicFile) {
+        return TextFiles.read(topicFile).lines().anyMatch(line -> line.strip().startsWith(AGREED_PREFIX));
     }
 
     /** {@code {주제}.md} 중 선택 파일({@code .planner.md}, {@code .evaluator.md})이 아닌 것의 주제 이름. 이름순. */

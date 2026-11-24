@@ -1,3 +1,6 @@
 # Gradle
 .gradle/
 build/
+
+# IDE가 만드는 빌드 출력
+bin/

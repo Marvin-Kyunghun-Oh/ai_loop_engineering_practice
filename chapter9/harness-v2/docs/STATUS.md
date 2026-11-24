@@ -118,11 +118,27 @@
   - 한계: evaluator는 "화면은 실행하지 않고 diff로 확인"했다. 키보드 동작의 실제 확인은 사람이 했다.
 - **실행 방식 정리**: `./gradlew run`은 자식 프로세스에 터미널 입력(TTY)을 연결하지 않아 Bootstrap(대화형 `claude`)이 실패한다(지난 세션에서 원인 확인). 일반 루프(`-p`)는 되지만 DONE·HALT 종료 코드가 `BUILD FAILED`로 보인다. 그래서 실행은 `installDist`로 통일하고 README·CLAUDE.md·`Main.java` 주석을 고쳤다. Windows(`harness-v2.bat`)와 macOS/Linux(`harness-v2`) 명령을 나눠 적었다.
   - macOS는 코드를 읽어 막힐 곳이 없다고 판단했을 뿐 실제로 돌려 보지는 않았다(`ClaudeExecutable`은 Windows가 아니면 PATH 탐색, `gradlew`는 git에 실행 권한 `100755`로 보존). `./gradlew test`가 쓰는 가짜 claude가 macOS에서도 도는지는 확인하지 못했다.
-- **사용자 가이드 작성**: [`USER_GUIDE.md`](USER_GUIDE.md)를 새로 썼다(빈 상태에서 시작, `harness.yml` 설정값, HALT 재개, 완료 확인, 완료 후 개선). README의 "새 프로젝트에 적용하기", "멈췄을 때", "비용" 절은 이 문서로 옮기고 링크만 남겼다. 가이드에서 Bootstrap과 macOS 실행은 "확인하지 못함"으로 표시했다.
+- **사용자 가이드 작성**: [`USER_GUIDE.md`](USER_GUIDE.md)를 새로 썼다(빈 상태에서 시작, `harness.yml` 설정값, HALT 재개, 완료 확인, 완료 후 개선). README의 "새 프로젝트에 적용하기", "멈췄을 때", "비용" 절은 이 문서로 옮기고 링크만 남겼다. 가이드에서 Bootstrap과 macOS 실행은 "확인하지 못함"으로 표시했다(Bootstrap은 이후 사용자가 직접 확인해 가이드를 고쳤다).
+
+- **검증 시나리오 환경 준비**: `projects/loop-check/`를 만들었다(PRD, `harness.yml`, `scenario/SCENARIO.md`, 2단계용 `scenario/stage-b/`). 사용자가 직접 실행한다. 실행은 아직 하지 않았다.
+  - A: FAIL → 재작업 루프(PRD M1). B: 합의 불발 HALT(사전 배치한 `storage.md`에 "합의 불발" 2회를 넣어 다음 불일치가 3회째가 되게 함)와 재개.
+- **loop-check 실행 결과(c1~c12, 약 $1.6, 모두 success)**: 기록은 `projects/loop-check/`(`docs/JOURNAL.md`, `.harness/reviews.csv`, `scenario/results/HALT-c9-storage.md`).
+  - **합의 불발 HALT 확인**: 사전 배치한 `storage.md`(불발 2회)에서 planner A, evaluator B가 갈라져 c9에 HALT. 4줄 형식, 상세에 두 선택 전문, 선택 파일 삭제, 3회째 줄은 추가하지 않음. 사람이 `합의: B`를 적고 HALT를 지운 뒤 c10부터 이어졌고, planner가 PRD에 `(자체 결정: 합의)`로 반영하고 PLAN의 미해결 항목을 정리했다. M5가 CSV로 구현됐다. 합의 성공 경로는 실제 프롬프트로 확인하지 못했다(강제 재현이라 불발만 봄).
+  - **FAIL → 재작업 루프는 확인하지 못했다.** 12사이클 모두 PASS(조건부 1회). planner가 구현과 테스트를 항목으로 나눠 항목마다 acceptance가 쉬웠고 evaluator도 관대했다. 같은 프로젝트로는 유도하기 어렵다.
+  - **발견한 결함 (사용자 결정 필요)**
+    1. evaluator가 결정 절차를 놓친다. c7, c8 evaluator는 `docs/decisions/`를 열지 않았고 c9에서야 `storage.evaluator.md`를 썼다. `evaluator.md` 6번이 폴더를 확인해야만 시작되는 구조다. 후보: 하네스가 프롬프트에 대기 중인 주제 목록을 넣는다.
+    2. `[결함]` 오분류: c5에서 evaluator가 "정상 동작일 가능성이 큼"이라 적은 항목을 `[결함]`으로 분류했고, c7 planner가 T8로 항목화해 사이클 하나를 썼다. 근거 요구 기준이 약하다. (c10의 T9 `[결함]` → T11은 실제 결함이라 정상.)
+    3. c10 evaluator의 T9 PASS 9/12가 `reviews.csv`에 없고 JOURNAL 줄 끝에 판정이 없다. REVIEW를 읽지 못했거나 `평가 대상:` 줄 불일치(9단계 지난 REVIEW 방어)로 보인다. 콘솔 경고로 확인해야 한다.
+    4. `docs/decisions/storage.md`는 합의 뒤에도 남는다(planner에 Bash 없음, 알려진 한계).
+    5. c2의 `PASS 7/9`처럼 해당 없음 축을 빼고 계산하면 기준(9점 이상 PASS)과 어긋난다. 이후는 12점 기준으로 돌아왔다.
+  - **수정 (0017)**: 발견 1·2를 고쳤다. `PromptRenderer`가 `{{decisions.awaiting_choice}}`를 만들어 `evaluator.md`의 "대기 중인 결정" 절에 넣는다(`DecisionResolver.topicsAwaitingChoice`). `evaluator.md`의 `[결함]` 기준에 "PRD가 허용하는 동작·재현 안 되는 추측은 `[보강]`"을 추가했다. `PromptRenderer` 생성자가 `ProjectFiles`를 받는다. 테스트 추가(`DecisionResolverTest` 4, `PromptRendererTest` 2), `./gradlew test` 통과. **효과는 실제 실행으로 아직 확인하지 못했다.** 발견 3(판정 미기록)은 콘솔 경고가 필요해 손대지 않았다.
+  - **0017 효과 확인(c13, 1사이클, 약 $0.17)**: 성공. evaluator 프롬프트에 `format-style`만 대기 목록으로 들어갔고(합의된 `storage`는 제외, `.planner.md` 노출 없음) evaluator가 **첫 사이클에** 선택을 써서 `format-style.md`에 `합의: A (시도 1회)`가 붙고 선택 파일이 지워졌다. 합의 성공 경로를 실제 프롬프트로 처음 확인했다. 한계: 같은 선택(A)이 PRD상 분명한 답이라 "한 번 확인했다" 수준이고, `[결함]` 규칙(0017의 2번)은 이 사이클에 `[결함]` 메모가 없어 확인하지 못했다. c13에서 planner가 PRD의 미해결 항목을 PLAN.md로 옮기며 PRD 요구 문구도 고쳤다(프롬프트상 허용 범위).
+  - **마지막 실행(c14~c15, 약 $0.31) 결과: FAIL은 끝내 나오지 않았다.** c14 합의 A가 PRD에 `(자체 결정: 합의)`로 반영되고 T13(`format_duration`)이 PASS 10/12. c15 planner가 PRD 전체를 대조해 `DONE`을 만들었다. 직접 재현: 40개 테스트 통과, 왕복(`parse_duration(format_duration(n)) == n`)이 0~200000과 경계값에서 모두 성립, 음수는 `ValueError`. loop-check 전체: 15사이클, 판정 PASS 13건·조건부 1건·FAIL 0건, 약 $2.1. **FAIL → 재작업 루프는 실제 실행에서 확인하지 못한 채 접는다**(단위 테스트로만 검증). 원인 추정: planner가 구현과 테스트를 잘게 나눠 항목마다 acceptance가 쉽고, evaluator는 위임된 acceptance를 채우면 높게 준다.
+  - 확인된 것: 마일스톤 아카이브, `[결함]` 승격(T9→T11), planner의 PRD-TASKS 간극 검출(M5 추가), `compileall` 허용 뒤 evaluator 직접 실행.
 
 ## 다음 할 일 (순서대로)
-1. **Bootstrap 실제 확인**: PRD 없이 처음 실행할 때 세션이 뜨고 역할 지시(`--append-system-prompt-file`)가 적용되는지 본다. 안 되면 `--append-system-prompt <본문>`으로 바꾼다.
-2. **더 복잡한 프로젝트로 실행**: FAIL → 재작업 루프(pomodoro-todo에서 한 번도 안 돌았음), 합의 불발 HALT, 외부 연동이 있는 프로젝트를 확인한다. 환경 사전 점검(`preflight`)은 필요하면 결정으로 정한다.
+1. ~~Bootstrap 실제 확인~~: **사용자가 직접 확인했다**(PRD 없이 시작, 결과가 pomodoro-todo의 PRD). 세션 로그로 `--append-system-prompt-file` 적용을 검증하지는 않았다. 역할을 따르지 않는 증상이 보이면 `--append-system-prompt <본문>`으로 바꾼다.
+2. **더 복잡한 프로젝트로 실행**: 합의 불발 HALT·재개와 합의 성공은 loop-check에서 확인했다. 남은 것은 FAIL → 재작업 루프(pomodoro-todo 25사이클, loop-check 15사이클 모두 FAIL 0건)와 외부 연동이 있는 프로젝트다. FAIL은 실제 프로젝트에서 처음 나올 때 동작을 보고 필요하면 고친다. 환경 사전 점검(`preflight`)은 필요하면 결정으로 정한다.
 3. **0007 비용 보정**: Pro 한도를 다 쓴 상태에서 하네스 합계와 비교한다.
 4. 사용자 확인이 남은 동작: 8단계의 v1과 다른 점 2가지, 9단계 구현 동작, 비용을 모르는 실행을 누적에 더하지 않는 처리(5단계 4번).
 5. 훅(0013, 0014)은 보류. 실제 프로젝트에서 위험 명령이나 허용 목록 우회가 문제가 되면 다시 판단한다.
@@ -154,7 +170,7 @@
 - **Bootstrap 완료**(`Bootstrap`, `ProcessClaudeRunner.runInteractive`, `PromptRenderer.bootstrapPrompt`). 테스트 5개 추가.
   - `Harness.run()`이 PRD가 없을 때 호출한다. 끝나도 PRD가 없으면 종료 코드 1.
   - 명령줄: `claude --model {planner 모델} --append-system-prompt-file {.harness/logs/bootstrap.prompt.md} --allowedTools ... --disallowedTools Bash`. 입출력은 콘솔을 그대로 쓴다(`inheritIO`). 시간·예산 상한은 없다.
-  - **실제 claude로는 아직 확인하지 않았다.** `--append-system-prompt-file` 옵션이 `claude --help` 본문에는 `--append-system-prompt[-file]`로만 나온다. 사람이 대화하는 세션이라 자동으로 확인할 수 없으니, 처음 PRD 없이 실행할 때 세션이 뜨고 역할 지시가 적용되는지 본다. 안 되면 v1처럼 `--append-system-prompt <본문>`으로 바꾼다.
+  - **실제 claude 확인**: 사용자가 PRD 없이 시작해 직접 확인했다(결과가 pomodoro-todo의 PRD). `claude --help` 본문에는 `--append-system-prompt[-file]`로만 나오고, 세션 로그로 역할 지시 적용을 검증한 것은 아니다. 문제가 보이면 v1처럼 `--append-system-prompt <본문>`으로 바꾼다.
   - 부트스트랩은 JOURNAL에 줄을 남기지 않는다(결과 JSON이 없어 0009의 형식을 채울 수 없다). 비용도 USAGE.csv에 잡히지 않는다(DESIGN 4.5).
 
 ## 11단계 준비 (완료, 실행도 끝남)
