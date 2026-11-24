@@ -9,6 +9,7 @@ import harness.config.HarnessConfig;
 import harness.prompt.PromptException;
 import harness.prompt.PromptRenderer;
 import harness.state.ProjectFiles;
+import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -41,10 +42,11 @@ public final class Main {
             System.exit(EXIT_STARTUP_ERROR);
         }
 
-        System.exit(run(projectDir));
+        System.exit(run(projectDir, System.out));
     }
 
-    private static int run(Path projectDir) {
+    /** 스모크 테스트가 같은 조립을 쓰도록 콘솔을 받는다. */
+    static int run(Path projectDir, PrintStream console) {
         ProjectFiles files = new ProjectFiles(projectDir);
         Clock clock = Clock.systemDefaultZone();
 
@@ -62,6 +64,6 @@ public final class Main {
             return EXIT_STARTUP_ERROR;
         }
 
-        return new Harness(config, files, runner, prompts, clock, System.out).run();
+        return new Harness(config, files, runner, prompts, clock, console).run();
     }
 }

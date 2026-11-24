@@ -1,0 +1,30 @@
+# 스모크 테스트용 설정 (DESIGN 7.1, 0011). 세 역할 모두 haiku, 상한은 작게.
+claude:
+  path: claude
+
+models:
+  planner: haiku
+  generator: haiku
+  evaluator: haiku
+
+limits:
+  max_iterations: 2
+  max_total_usd: 1
+  max_agent_usd: 0.5
+  max_turns: null
+  agent_timeout_min: 10
+  backlog_per_milestone: 2
+  max_consecutive_errors: 2
+
+commands:
+  test: "python3 -m unittest discover -s tests -t ."
+  test_path: "python3 -m unittest {path}"
+  build: "python3 -m compileall -q src"
+  add_dependency: "의존성을 추가하지 않는다. 표준 라이브러리만 쓴다"
+
+permissions:
+  generator_bash:
+    - "Bash(python3 -m unittest:*)"
+    - "Bash(python3 -m compileall:*)"
+  evaluator_bash:
+    - "Bash(python3 -m unittest:*)"

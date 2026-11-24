@@ -1,7 +1,7 @@
 # STATUS
 
 - 갱신: 2026-11-24
-- 단계: **구현 중** (DESIGN 8절 1~10단계 완료(훅은 보류), 테스트 175개 통과(실제 claude 확인 3개는 평소 건너뜀). 다음은 11단계 스모크 테스트)
+- 단계: **구현 중** (DESIGN 8절 1~10단계 완료(훅은 보류), 11단계는 준비 완료·실행 대기. 테스트 175개 통과(실제 claude 확인 3개는 평소 건너뜀), `smokeTest` 무료 검사 8개 통과)
 
 ## 완료
 - v1 rss-wiki 실행을 중단하고 기록을 남겼다(0001). 브랜치 `feat/chap9-harness-setup`, 커밋 `8e03550`, `b8ec582`.
@@ -86,7 +86,7 @@
 
 ## 다음 할 일 (순서대로)
 1. **구현**: `DESIGN.md` 8절의 11단계를 따른다. 11단계는 스모크 테스트이고, 0007의 비용 보정도 이 단계에서 한다.
-   - 다음: 11단계 스모크 테스트(DESIGN 7.1). 샘플 프로젝트와 `smokeTest` 태스크를 만든다. **실행은 비용이 드니(추정 $0.5~1) 실행 전에 사용자에게 알린다.** 위험 명령 차단 훅(C2, 0014)과 Bash 허용 목록 훅(0013)은 스모크 테스트 뒤에 필요한지 다시 판단한다.
+   - 다음: 11단계 스모크 테스트 **실행**(DESIGN 7.1). 준비는 끝났다(아래 "11단계 준비"). 실행은 비용이 드니(추정 $0.5~1) 사용자의 승인을 받고 한다. 결과로 0007 비용 보정과 배관 문제를 확인한다. 위험 명령 차단 훅(C2, 0014)과 Bash 허용 목록 훅(0013)은 그 결과를 보고 필요한지 다시 판단한다.
    - 각 단계가 끝날 때마다 `./gradlew test` 통과를 확인하고 이 파일을 갱신한다.
    - `DESIGN.md` 9절의 확인 항목은 해당 단계에서 확인한다.
 2. **실제 대상 프로젝트 실행**: 대상 프로젝트가 정해지면(0004) 돌린다. 비용 보정은 스모크 테스트에서 끝냈을 것이므로 보정된 상한을 쓴다.
@@ -120,6 +120,16 @@
   - 명령줄: `claude --model {planner 모델} --append-system-prompt-file {.harness/logs/bootstrap.prompt.md} --allowedTools ... --disallowedTools Bash`. 입출력은 콘솔을 그대로 쓴다(`inheritIO`). 시간·예산 상한은 없다.
   - **실제 claude로는 아직 확인하지 않았다.** `--append-system-prompt-file` 옵션이 `claude --help` 본문에는 `--append-system-prompt[-file]`로만 나온다. 사람이 대화하는 세션이라 자동으로 확인할 수 없으니, 처음 PRD 없이 실행할 때 세션이 뜨고 역할 지시가 적용되는지 본다. 안 되면 v1처럼 `--append-system-prompt <본문>`으로 바꾼다.
   - 부트스트랩은 JOURNAL에 줄을 남기지 않는다(결과 JSON이 없어 0009의 형식을 채울 수 없다). 비용도 USAGE.csv에 잡히지 않는다(DESIGN 4.5).
+
+## 11단계 준비 (완료)
+- **실행**: `$env:HARNESS_SMOKE = "1"; ./gradlew smokeTest`. 환경 변수가 없으면 유료 테스트(`SmokeTest`)는 건너뛰고, 무료 검사(`SmokeChecksTest` 8개)만 돈다. `test`·`check`에는 연결하지 않았다.
+- **샘플 프로젝트**: `src/smokeTest/resources/sample-project/`. PRD는 `reverse()` 함수 하나(Python, 표준 라이브러리, `python3 -m unittest`). 세 역할 haiku, `max_iterations: 2`, `max_total_usd: 1`, `max_agent_usd: 0.5`. 테스트 명령은 수 초 안에 끝난다.
+  - 언어는 Python으로 정했다(DESIGN 7.1의 "구체적인 구성은 구현 단계에서"). Gradle 프로젝트는 매 호출마다 데몬을 띄워 느리고 래퍼 복사가 필요하다. 에이전트가 만든 코드의 품질은 확인 대상이 아니다.
+  - 허용 Bash: `python3 -m unittest`, `python3 -m compileall`.
+- **동작**: 샘플을 `build/smoke-run/`에 복사해 `Main.run()`으로 돌린다. 끝나면 `build/smoke-run/`에 `docs/`, `.harness/logs/`, `console.log`, `REPORT.md`가 남는다. 이전 실행 결과는 지우고 시작한다.
+- **검사 10개**(`SmokeChecks`): 정상 종료, 3역할 실행, `CURRENT` 형식, TASKS 형식, REVIEW 블록과 reviews.csv, USAGE.csv, JOURNAL 형식, 원본 로그, 프롬프트 `{{` 잔존, 허용 명령 거부 여부. 검사는 하나가 실패해도 모두 돌려 한 번에 보고한다.
+- **한계**: 허용 목록 밖 명령이 실제로 막히는지는 에이전트가 그런 명령을 시도해야 알 수 있다. 시도하지 않았으면 기록이 없다고 리포트에 적는다.
+- `Main.run(Path, PrintStream)`을 패키지 공개로 빼서 스모크 테스트가 실제와 같은 조립을 쓴다.
 
 ## 보류한 훅 (0013, 0014): 스모크 테스트 뒤에 다시 판단
 - **Bash 허용 목록 훅**(0013으로 11단계 뒤로 미룸): 6단계 확인에서 읽기 전용 명령(`whoami`)이 허용 목록 밖인데도 실행됐다(0008 확인 결과). C2 위험 명령 차단 훅과 같은 PreToolUse 훅이므로 함께 만든다.
