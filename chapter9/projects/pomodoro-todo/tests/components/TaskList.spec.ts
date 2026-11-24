@@ -78,6 +78,46 @@ describe('TaskInput + TaskList', () => {
     expect(useTimerStore().timer.taskId).toBe(b.id)
   })
 
+  it('제목은 tabindex="0"으로 포커스할 수 있다', () => {
+    useTasksStore().add('일')
+    const list = mount(TaskList)
+    expect(list.find('.title').attributes('tabindex')).toBe('0')
+    expect(list.find('.title').attributes('role')).toBe('button')
+  })
+
+  it('제목에서 Enter keydown → 집중 시작, 행 강조', async () => {
+    const task = useTasksStore().add('일')!
+    const list = mount(TaskList)
+    await list.find('.title').trigger('keydown', { key: 'Enter' })
+    expect(useTimerStore().timer.phase).toBe('focus')
+    expect(useTimerStore().timer.taskId).toBe(task.id)
+    expect(list.find('.task-row').classes()).toContain('is-current')
+  })
+
+  it('제목에서 Space keydown → 집중 시작', async () => {
+    useTasksStore().add('일')
+    const list = mount(TaskList)
+    await list.find('.title').trigger('keydown', { key: ' ' })
+    expect(useTimerStore().timer.phase).toBe('focus')
+  })
+
+  it('집중 중 다른 행 제목에서 Enter: confirm false면 유지, true면 전환', async () => {
+    const tasks = useTasksStore()
+    const a = tasks.add('A')!
+    const b = tasks.add('B')!
+    const list = mount(TaskList)
+    await list.findAll('.title')[0].trigger('keydown', { key: 'Enter' })
+
+    const spy = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    await list.findAll('.title')[1].trigger('keydown', { key: 'Enter' })
+    expect(spy).toHaveBeenCalled()
+    expect(useTimerStore().timer.taskId).toBe(a.id)
+
+    spy.mockReturnValue(true)
+    await list.findAll('.title')[1].trigger('keydown', { key: 'Enter' })
+    expect(useTimerStore().timer.taskId).toBe(b.id)
+  })
+
   it('✎ 편집: Enter로 변경, 빈 제목은 편집 유지, Esc는 취소', async () => {
     useTasksStore().add('원래')
     const list = mount(TaskList)

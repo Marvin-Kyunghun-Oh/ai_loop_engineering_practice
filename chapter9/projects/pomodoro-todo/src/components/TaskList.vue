@@ -89,7 +89,11 @@ function onDrop(index: number): void {
         v-else
         class="title"
         :class="{ done: task.done }"
+        tabindex="0"
+        role="button"
         @click="onTitleClick(task.id)"
+        @keydown.enter.prevent="onTitleClick(task.id)"
+        @keydown.space.prevent="onTitleClick(task.id)"
         >{{ task.title }}</span
       >
       <span class="count">🍅 {{ task.pomodoroCount }}</span>
@@ -132,6 +136,10 @@ function onDrop(index: number): void {
 .delete-btn,
 .count {
   flex-shrink: 0;
+}
+.title:focus-visible {
+  outline: 2px solid #c2410c;
+  outline-offset: 2px;
 }
 .title.done {
   text-decoration: line-through;

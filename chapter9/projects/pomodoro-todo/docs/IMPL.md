@@ -1,20 +1,17 @@
-# IMPL
+# IMPL (사이클 24)
 
-## 처리 항목
-- T31. 좁은 화면 최소 CSS (사이클 22)
+## 처리한 항목
+T32. 키보드로 집중 시작 (P1 개선)
 
 ## 변경 파일
-- `src/App.vue`: `@media (max-width: 480px)`에서 `.app` 패딩을 `24px 12px`로 축소
-- `src/components/TaskList.vue`: `.title`에 `min-width: 0`, `overflow-wrap: anywhere` 추가. `.handle`, `.edit-btn`, `.delete-btn`, `.count`에 `flex-shrink: 0` 추가
-- `src/components/TimerPanel.vue`: `.actions`에 `flex-wrap: wrap` 추가
-
-스타일 블록만 수정했고 마크업과 동작은 그대로다.
+- `src/components/TaskList.vue`: 제목 span에 `tabindex="0"`, `role="button"`, `keydown.enter`/`keydown.space`(prevent) → `onTitleClick(task.id)`. `.title:focus-visible` outline 추가.
+- `tests/components/TaskList.spec.ts`: tabindex/role, Enter, Space, 집중 중 다른 행 Enter(confirm false/true) 테스트 4개 추가.
 
 ## 검증
-- 확인: `src/App.vue`에 `@media (max-width: 480px)`, `src/components/TaskList.vue`에 `overflow-wrap: anywhere`와 `min-width: 0`, `src/components/TimerPanel.vue`에 `flex-wrap: wrap`이 있다. 위 Edit 결과로 확인했고 Grep으로 다시 실행하지는 않았다.
-- `npx vitest run` → 14개 파일, 테스트 97개 통과 (기존 테스트 수정 없음)
-- `npx vue-tsc --noEmit` → 종료 코드 0, 출력 없음
+- `npx vitest run tests/components/TaskList.spec.ts` → 17개 통과
+- `npx vitest run` → 14개 파일, 101개 통과
+- `npx vue-tsc --noEmit` → 오류 없음(종료 코드 0)
 
 ## 참고
-- 결정: 편집 입력(`.edit-input`)은 `flex: 1`을 유지하고 별도로 건드리지 않았다.
-- 새 의존성 없음.
+- 결정: Enter와 Space 모두 클릭과 같은 `onTitleClick`을 호출해 P6 확인과 P7 규칙을 그대로 재사용한다.
+- 새 의존성 없음. 화면 변경은 포커스 outline뿐이며 실행은 `npm run dev`.
