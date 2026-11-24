@@ -24,5 +24,6 @@ harness-v2를 설계하며 사용자와 합의한 결정을 남긴다. 한 파�
 | [0014](0014-defer-danger-hook.md) | 위험 명령 차단 훅(C2)은 스모크 테스트 뒤로 미룬다 | 확정 | 2026-11-24 |
 | [0015](0015-journal-summary-last-line.md) | JOURNAL 요약은 result의 마지막 줄을 쓴다 | 확정 | 2026-11-24 |
 | [0016](0016-resume-interrupted-cycle.md) | 중단된 사이클은 성공한 역할을 건너뛰고 이어서 한다 | 확정 | 2026-11-24 |
+| [0017](0017-awaiting-decision-and-defect-rule.md) | 대기 중인 결정 주제를 프롬프트에 알리고, `[결함]` 기준에 PRD 대조를 넣는다 | 확정 | 2026-11-24 |
 
 상세한 근거와 구현 메모는 [`../IMPROVEMENTS.md`](../IMPROVEMENTS.md)에 있다.

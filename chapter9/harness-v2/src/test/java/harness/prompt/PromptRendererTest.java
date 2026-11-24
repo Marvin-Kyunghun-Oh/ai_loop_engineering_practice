@@ -11,6 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import harness.config.ConfigLoader;
 import harness.config.HarnessConfig;
 import harness.policy.Role;
+import harness.state.ProjectFiles;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -96,7 +97,7 @@ class PromptRendererTest {
             Path yml = dir.resolve(ConfigLoader.FILE_NAME);
             Files.writeString(yml, readResource("/config/harness.yml"), StandardCharsets.UTF_8);
             HarnessConfig config = ConfigLoader.load(yml);
-            renderer = new PromptRenderer(config, FIXED_CLOCK);
+            renderer = new PromptRenderer(config, new ProjectFiles(dir), FIXED_CLOCK);
         }
 
         @Test
@@ -154,6 +155,35 @@ class PromptRendererTest {
             assertFalse(prompt.contains("uv add"), role.id());
             assertFalse(prompt.contains("run.py"), role.id());
             assertFalse(prompt.contains("JOURNAL.md 마지막 줄"), role.id());
+        }
+
+        @Test
+        @DisplayName("evaluator: 선택하지 않은 결정 주제를 알려 준다. 없으면 '없음' (0017)")
+        void evaluatorAwaitingDecisions() throws IOException {
+            String none = renderer.promptFor(Role.EVALUATOR, 1);
+            assertTrue(none.contains("## 대기 중인 결정"), none);
+            assertFalse(none.contains("docs/decisions/storage"), none);
+
+            Path decisions = dir.resolve("docs/decisions");
+            Files.createDirectories(decisions);
+            Files.writeString(decisions.resolve("storage.md"), "# 결정\n후보 A, B", StandardCharsets.UTF_8);
+            Files.writeString(decisions.resolve("storage.planner.md"), "선택: A\n근거", StandardCharsets.UTF_8);
+
+            String pending = renderer.promptFor(Role.EVALUATOR, 2);
+
+            assertTrue(pending.contains("- storage: docs/decisions/storage.md를 읽고 "
+                    + "docs/decisions/storage.evaluator.md에 선택을 기록한다"), pending);
+            // 블라인드: 상대편의 선택 내용과 파일 이름은 알려 주지 않는다.
+            assertFalse(pending.contains("storage.planner.md"), pending);
+            assertFalse(pending.contains("선택: A"), pending);
+        }
+
+        @Test
+        @DisplayName("evaluator: [결함] 기준에 PRD 허용·추측 제외 규칙이 있다 (0017)")
+        void evaluatorDefectRule() {
+            String prompt = renderer.promptFor(Role.EVALUATOR, 1);
+
+            assertTrue(prompt.contains("PRD나 TASKS의 요구가 그 동작을 명시적으로 허용하거나 요구하는 경우"), prompt);
         }
 
         @Test

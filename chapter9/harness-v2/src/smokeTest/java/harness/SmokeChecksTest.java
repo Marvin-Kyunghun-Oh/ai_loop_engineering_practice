@@ -46,7 +46,7 @@ class SmokeChecksTest {
         Path sample = Path.of(SmokeChecksTest.class.getResource("/sample-project").toURI());
 
         HarnessConfig config = ConfigLoader.load(sample.resolve("harness.yml"));
-        new PromptRenderer(config, Clock.systemDefaultZone()).checkTemplates();
+        new PromptRenderer(config, new ProjectFiles(sample), Clock.systemDefaultZone()).checkTemplates();
 
         assertTrue(Files.exists(sample.resolve("docs/PRD.md")));
         assertEquals("haiku", config.models().planner());

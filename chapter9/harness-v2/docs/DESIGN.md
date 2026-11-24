@@ -304,6 +304,7 @@ BigDecimal total();
   | `{{limits.backlog_per_milestone}}` | `harness.yml` |
   | `{{cycle.number}}` | 현재 사이클 번호 |
   | `{{cycle.now}}` | 프롬프트를 만든 시각(에이전트 실행 직전, ISO 8601). 에이전트가 문서에 날짜를 적을 때 쓴다 |
+  | `{{decisions.awaiting_choice}}` | 그 역할의 선택이 아직 없는 결정 주제 목록(0017). 역할 프롬프트에만 있고 없으면 `없음`. `PromptRenderer`가 `docs/decisions/`를 읽어 만든다(`DecisionResolver.topicsAwaitingChoice`) |
 
 - 7단계 구현
   - 모르는 변수는 모아서 한 번에 알려 준다. 닫히지 않은 `{{`도 예외다. 중괄호 하나(`{path}`, `{주제}`)는 변수가 아니다.

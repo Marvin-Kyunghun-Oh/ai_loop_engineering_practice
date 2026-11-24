@@ -1,11 +1,14 @@
 package harness.prompt;
 
 import harness.config.HarnessConfig;
+import harness.decision.DecisionResolver;
 import harness.policy.Role;
+import harness.state.ProjectFiles;
 import harness.state.Timestamps;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -13,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * 프롬프트 파일({@code src/main/resources/prompts/*.md})의 {@code {{변수}}}를 치환한다 (DESIGN 5.6, D3).
@@ -25,6 +29,7 @@ import java.util.regex.Pattern;
  *   <li>{@code limits.backlog_per_milestone}</li>
  *   <li>{@code cycle.number}: 사이클 번호</li>
  *   <li>{@code cycle.now}: 프롬프트를 만든 시각(에이전트 실행 직전). 에이전트가 문서에 날짜를 적을 때 쓴다</li>
+ *   <li>{@code decisions.awaiting_choice}: 이 역할의 선택이 아직 없는 결정 주제 목록(0017). 역할 프롬프트에만 있다. 없으면 "없음"</li>
  * </ul>
  */
 public final class PromptRenderer implements PromptProvider {
@@ -35,17 +40,21 @@ public final class PromptRenderer implements PromptProvider {
     private static final String RESOURCE_DIR = "/prompts/";
 
     private final HarnessConfig config;
+    private final ProjectFiles files;
     private final Clock clock;
 
-    public PromptRenderer(HarnessConfig config, Clock clock) {
+    public PromptRenderer(HarnessConfig config, ProjectFiles files, Clock clock) {
         this.config = config;
+        this.files = files;
         this.clock = clock;
     }
 
     @Override
     public String promptFor(Role role, int cycle) {
         String fileName = role.id() + ".md";
-        return render(fileName, loadTemplate(fileName), variables(cycle));
+        Map<String, String> variables = variables(cycle);
+        variables.put("decisions.awaiting_choice", awaitingChoice(role));
+        return render(fileName, loadTemplate(fileName), variables);
     }
 
     @Override
@@ -92,6 +101,22 @@ public final class PromptRenderer implements PromptProvider {
             throw new PromptException(templateName + "에 닫히지 않은 {{가 있다");
         }
         return result.toString();
+    }
+
+    /**
+     * 이 역할이 아직 선택하지 않은 결정 주제를 프롬프트에 넣을 줄로 만든다. 없으면 "없음".
+     * 에이전트가 {@code docs/decisions/}를 열어 보지 않아 절차를 놓치는 일을 막는다(0017).
+     */
+    private String awaitingChoice(Role role) {
+        Path decisionsDir = files.decisionsDir();
+        List<String> topics = DecisionResolver.topicsAwaitingChoice(decisionsDir, role);
+        if (topics.isEmpty()) {
+            return "없음";
+        }
+        return topics.stream()
+                .map(topic -> "- " + topic + ": docs/decisions/" + topic + ".md를 읽고 docs/decisions/"
+                        + DecisionResolver.choiceFile(decisionsDir, topic, role).getFileName() + "에 선택을 기록한다")
+                .collect(Collectors.joining(System.lineSeparator()));
     }
 
     private Map<String, String> variables(int cycle) {

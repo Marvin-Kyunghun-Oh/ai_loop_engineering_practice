@@ -64,7 +64,7 @@ harness-v2/
     │   ├── claude/                    # claude -p 실행(ProcessClaudeRunner)과 결과 JSON 해석(ResultParser)
     │   ├── cost/                      # 누적 비용 상한 검사, USAGE.csv (CostLedger)
     │   ├── journal/                   # JOURNAL.md 한 줄 기록 (JournalWriter)
-    │   ├── prompt/                    # 프롬프트의 {{변수}} 치환 (PromptRenderer)
+    │   ├── prompt/                    # 프롬프트의 {{변수}} 치환 (PromptRenderer). 결정 대기 목록(0017)도 만든다
     │   ├── policy/                    # 역할(Role)별 허용·금지 도구 (ToolPolicy)
     │   ├── state/                     # docs/ 아래 파일 경로, DONE·HALT·CURRENT 읽기·쓰기 (ProjectFiles)
     │   ├── review/                    # REVIEW.md 판정 읽기, reviews.csv 저장
@@ -119,7 +119,7 @@ harness-v2/
    6. `DecisionResolver.resolve`: planner와 evaluator가 따로 낸 결정이 일치하는지 본다. 3회 불발이면 HALT.
 4. **에이전트 1회** — `Harness.runAgent`
    - `CostLedger.canAfford`: 누적 + 1회 상한이 총 상한을 넘으면 실행하지 않고 HALT("예산 소진").
-   - `PromptRenderer.promptFor`로 프롬프트를, `ToolPolicy`로 역할별 도구를 정해 `AgentRequest`를 만든다.
+   - `PromptRenderer.promptFor`로 프롬프트를, `ToolPolicy`로 역할별 도구를 정해 `AgentRequest`를 만든다. 이때 `docs/decisions/`를 읽어, 그 역할이 아직 선택하지 않은 결정 주제를 프롬프트에 넣어 준다(`DecisionResolver.topicsAwaitingChoice`, [0017](docs/decisions/0017-awaiting-decision-and-defect-rule.md)).
    - `ClaudeRunner.run`: 실제로는 `ProcessClaudeRunner`가 `claude -p`를 띄우고, `ResultParser`가 결과 JSON을 `AgentResult`(`Outcome` 포함)로 바꾼다. 원본은 `.harness/logs/`에 저장한다.
    - `CostLedger.record`(USAGE.csv)와 `JournalWriter.append`(JOURNAL)는 **오류여도** 남긴다.
    - `decideNext`가 `Outcome`별로 다음을 정한다.
@@ -144,8 +144,10 @@ harness-v2/
 
 ## 알려진 한계와 보류
 최신 상태는 [`docs/STATUS.md`](docs/STATUS.md)가 기준이다. 이 README 작성 시점(2026-11-24)에는 다음이 남아 있다.
-- **Bootstrap 실제 확인 전**: `--append-system-prompt-file`이 대화형 세션에서 적용되는지 확인하지 못했다. 안 되면 `--append-system-prompt <본문>`으로 바꾼다.
+- **Bootstrap**: 사용자가 PRD 없이 시작해 직접 확인했다(결과가 pomodoro-todo의 PRD). 다만 `claude` 세션 로그로 `--append-system-prompt-file` 적용을 검증한 것은 아니다.
 - **비용 보정 전**(0007): 하네스 합계와 Pro 한도 사용량의 비교는 한도를 다 쓴 상태에서만 가능하다.
 - **훅 보류**(0013, 0014): Bash 허용 목록 훅과 위험 명령 차단 훅. 쓰기 명령은 이미 거부되고, 읽기 전용 명령(`whoami` 등)은 허용 목록 밖이어도 실행된다.
 - 사용량 한도에 도달했을 때의 출력 형태는 재현하지 못해 미확인이다.
-- 실제 대상 프로젝트로 돌려 본 적이 없다(샘플만).
+- **FAIL → 재작업 루프는 실제 실행에서 한 번도 돌지 않았다**(pomodoro-todo 25사이클, loop-check 15사이클 모두 FAIL 0건). 단위 테스트로만 검증했다.
+- **macOS/Linux 실행은 코드를 읽고 판단했을 뿐 돌려 보지 않았다.**
+- 실제 대상 프로젝트로는 pomodoro-todo(25사이클, `DONE`)와 loop-check(15사이클, 합의 불발 HALT·재개·합의 성공 확인)를 돌렸다. 결과는 STATUS에 있다.

@@ -55,7 +55,7 @@ public final class Main {
         ClaudeRunner runner;
         try {
             config = ConfigLoader.load(files.harnessYml());
-            prompts = new PromptRenderer(config, clock);
+            prompts = new PromptRenderer(config, files, clock);
             // 비용을 쓰기 전에 템플릿 오류(모르는 변수 등)를 찾는다.
             prompts.checkTemplates();
             runner = new ProcessClaudeRunner(ClaudeExecutable.resolve(config.claude().path()));
