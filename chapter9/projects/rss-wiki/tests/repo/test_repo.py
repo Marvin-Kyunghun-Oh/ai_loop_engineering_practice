@@ -233,6 +233,24 @@ def _check_mark_done(c, other):
     return lambda: repo.get_article(other, aid)["status"] == "done"
 
 
+def _check_record_feed_success(c, other):
+    fid = repo.add_feed(c, "http://z", "Z")
+    repo.record_feed_success(c, fid, etag="e", last_modified="lm")
+    return lambda: repo.get_feed(other, fid)["etag"] == "e"
+
+
+def _check_record_feed_failure(c, other):
+    fid = repo.add_feed(c, "http://z", "Z")
+    repo.record_feed_failure(c, fid, "boom")
+    return lambda: repo.get_feed(other, fid)["consecutive_failures"] == 1
+
+
+def _check_mark_initial_fetch_done(c, other):
+    fid = repo.add_feed(c, "http://z", "Z")
+    repo.mark_initial_fetch_done(c, fid)
+    return lambda: repo.get_feed(other, fid)["initial_fetch_done"] == 1
+
+
 def _check_start_run(c, other):
     rid = repo.start_run(c)
     return lambda: repo.get_latest_run(other)["id"] == rid
@@ -261,6 +279,9 @@ def _check_abort_runs(c, other):
         _check_mark_failed,
         _check_mark_done,
         _check_set_article_tags,
+        _check_record_feed_success,
+        _check_record_feed_failure,
+        _check_mark_initial_fetch_done,
         _check_start_run,
         _check_finish_run,
         _check_abort_runs,
@@ -274,6 +295,68 @@ def test_writes_are_committed(conn, db_path, check):
         assert verify()
     finally:
         other.close()
+
+
+# ---------------------------------------------------------------- 피드 상태 기록
+
+
+def _set_etag(conn, fid, etag="e1", lm="lm1"):
+    conn.execute("UPDATE feeds SET etag = ?, last_modified = ? WHERE id = ?", (etag, lm, fid))
+    conn.commit()
+
+
+def test_feed_failure_then_success(conn, feed_id):
+    _set_etag(conn, feed_id)
+    assert repo.record_feed_failure(conn, feed_id, "first") == 1
+    assert repo.record_feed_failure(conn, feed_id, "second") == 2
+    row = repo.get_feed(conn, feed_id)
+    assert row["consecutive_failures"] == 2
+    assert row["last_error"] == "second"
+    assert row["etag"] == "e1"
+    assert row["last_modified"] == "lm1"
+    repo.record_feed_success(conn, feed_id, etag="e2", last_modified="lm2")
+    row = repo.get_feed(conn, feed_id)
+    assert row["consecutive_failures"] == 0
+    assert row["last_error"] is None
+    assert (row["etag"], row["last_modified"]) == ("e2", "lm2")
+
+
+def test_feed_success_none_values(conn, feed_id):
+    _set_etag(conn, feed_id)
+    repo.record_feed_success(conn, feed_id, etag=None, last_modified=None)
+    row = repo.get_feed(conn, feed_id)
+    assert row["etag"] is None
+    assert row["last_modified"] is None
+
+
+def test_mark_initial_fetch_done_idempotent(conn, feed_id):
+    assert repo.get_feed(conn, feed_id)["initial_fetch_done"] == 0
+    repo.mark_initial_fetch_done(conn, feed_id)
+    repo.mark_initial_fetch_done(conn, feed_id)
+    assert repo.get_feed(conn, feed_id)["initial_fetch_done"] == 1
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda c: repo.record_feed_success(c, 999, etag=None, last_modified=None),
+        lambda c: repo.record_feed_failure(c, 999, "e"),
+        lambda c: repo.mark_initial_fetch_done(c, 999),
+    ],
+    ids=["success", "failure", "initial_done"],
+)
+def test_feed_state_missing_feed(conn, call):
+    with pytest.raises(repo.FeedNotFoundError):
+        call(conn)
+    assert conn.in_transaction is False
+
+
+@pytest.mark.parametrize("bad", ["  ", None, ""])
+def test_record_feed_failure_bad_error(conn, feed_id, bad):
+    before = tuple(repo.get_feed(conn, feed_id))
+    with pytest.raises(ValueError):
+        repo.record_feed_failure(conn, feed_id, bad)
+    assert tuple(repo.get_feed(conn, feed_id)) == before
 
 
 # ---------------------------------------------------------------- 태그·검색

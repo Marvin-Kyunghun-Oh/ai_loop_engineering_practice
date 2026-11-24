@@ -1,9 +1,48 @@
 # PLAN: rss-wiki
 
 - 기준 문서: docs/PRD.md (초안 v1)
-- 최종 갱신: 2026-11-23 (planner, 사이클 11)
+- 최종 갱신: 2026-11-24 (planner, 사이클 20)
 
-## 현재 상태 (2026-11-23, 사이클 11 시작 시점)
+## 현재 상태 (2026-11-24, 사이클 20 시작 시점)
+
+- 사이클 19: T7(`record_feed_success`·`record_feed_failure`·`mark_initial_fetch_done`, `status=True` 거부 테스트) PASS 12/12, `tests/repo` 85 passed, 전체 248 passed. 의미 있는 acceptance 변이 3종과 evaluator 추가 변이 4종이 모두 잡혔다. 변이 (4) bool 검사 제거는 동치 변이였다(메시지만 바뀜).
+- T7 REVIEW 메모: 빈 메시지 `FeedError`가 `record_feed_failure`의 공백 거부에 걸려 `ValueError`가 샐 수 있음 → M2 자체 결정(아래 "피드 실패 오류 문자열")으로 정하고 T7b에 테스트 1건과 변이로 넣었다. `caplog` 단언은 경고 건수와 피드 url까지 확인하게 했다. bool 분기는 `match="잘못된 HTTP 상태"`로 고정한다(T7b 작은 보강). T7b 변이 (2) "첫 수집 판정 무시"가 잡히도록 세 번째 호출의 새 항목을 가장 오래된 날짜로 정했다. 미커밋 `feeds.py`·`tests/feeds/`·`feedparser` 의존성은 사람의 중간 커밋 대상이다(planner 권한 밖).
+- 다음: T7b(`collect_feed`) → T8 전에 아래 "T8 전 확인 사항"을 정리한다.
+- 아래는 사이클 19 시점 기록.
+
+- 사이클 18: T6s(http/https scheme 제한·비정수 status·`HTTPError.headers is None` 방어) PASS 11/12, `tests/feeds` 82 passed, 전체 235 passed. 실제 `file://`·`ftp://`·`data:` 탐침에서 모두 `FeedFetchError`가 나서 T6r의 `TypeError` 누출이 해소됐다.
+- T6s REVIEW 메모: `bool` status 거부(자체 결정)를 고정하는 테스트가 없다(감점 사유) → T7 앞부분에 테스트 1건을 넣는다. acceptance 변이 `.lower()` 제거는 동치 변이였다 → 아래 "acceptance 작성 규칙"에 반영했다. 웹 폼 URL 앞뒤 공백 → M5 자체 결정에 넣었다.
+- 다음: T7(`repo.py` 피드 상태 기록 + bool status 테스트) → T7b(`collect_feed`) → T8 전에 아래 "T8 전 확인 사항"을 정리한다.
+- 아래는 사이클 18 시점 기록.
+
+- 사이클 17: T6r(URL 입력 오류 포장·비ASCII path/query 인코딩·헤더 정규화 `HttpResponse` 이동·`urllib_get` 성공 경로 테스트) PASS 11/12, `tests/feeds` 69 passed, 전체 222 passed, acceptance 변이 11종 모두 잡힘. 로컬 서버 탐침으로 한글 URL 인코딩·304·잘못된 URL → `FeedFetchError`를 evaluator가 확인했다.
+- T6r REVIEW 메모: 존재하는 로컬 파일의 `file://` URL은 `urllib`이 읽어 `resp.status`가 `None`이 되고 `feeds.py:271`에서 `TypeError`가 샌다(PLAN M2 "URL 입력으로 `FeedError` 밖 예외 없음" 계약 위반, 감점 사유). `HTTPError.headers`가 `None`이면 `_lower_headers`에서 `AttributeError`(선택). → 아래 M2 자체 결정("피드 URL scheme은 http/https만")으로 정하고 T6s(T7 앞)에 배정. `HTTPError` 경로의 `url`이 인코딩 전 원래 url인 점은 결함 아님(본문 파싱 없음).
+- 다음: T6s(작은 보강) → T7(`repo.py` 피드 상태 기록) → T7b(`collect_feed`).
+- 아래는 사이클 17 시점 기록.
+
+- 사이클 16: T6(`HttpFeedFetcher`, 주입형 `http_get`, 조건부 요청·304·오류 매핑) PASS 10/12, 전체 211 passed, acceptance 변이 7종 잡힘. 로컬 서버 탐침으로 200 → 304, 리다이렉트, 404, 연결 거부가 정상 동작함을 evaluator가 확인했다.
+- T6 REVIEW 메모: 한글 path URL(`UnicodeEncodeError`)과 형식이 틀린 URL(`ValueError`)이 `FeedError` 계약 밖으로 샌다. `urllib_get` 성공 경로(헤더·timeout 전달, `geturl()`, 헤더 소문자화)가 테스트되지 않는다. 헤더 키 정규화가 `HttpResponse`가 아니라 `urllib_get`에만 있다(IMPL 보고와 불일치). 2xx 경계, `OSError`·`HTTPException` 매핑 테스트도 없다. → 모두 T6r(T7 앞)에 배정했다. URL 인코딩과 헤더 정규화 위치는 아래 M2 자체 결정으로 정했다. 응답 본문 크기 상한은 T9 원문 페이지 가져오기와 함께 공통 상한으로 처리한다(아래 M2 자체 결정). `Content-Type` charset 미전달은 결함이 아니므로 조치하지 않는다.
+- 다음: T6r(작은 보강) → T7(`repo.py` 피드 상태 기록) → T7b(`collect_feed`).
+- 아래는 사이클 16 시점 기록.
+
+- 사이클 15: T5(`parse_feed`, feedparser 6.0.14 도입) PASS 11/12, 전체 191 passed, acceptance 변이 3종 잡힘. 런타임 의존성은 `feedparser`(+전이 `feedparser-sgmllib`)만 추가.
+- T5 REVIEW 메모: bozo 허용 분기 미검증(감점 사유) + 빈 값 → `None`·strip 고정 케이스 → T6 앞부분 테스트 보강. content-only 피드에서 `summary`가 본문과 같아짐 → T8 본문 선택 규칙에 반영(아래 M2 자체 결정). `javascript:` link → M4/M5 렌더링 자체 결정(아래 M4). 본문 HTML 상대 링크 미절대화는 결함 아님(U4로 본문 미저장).
+- 다음: T6(`HttpFeedFetcher` + bozo 테스트) → T7(`repo.py` 피드 상태 기록) → T7b(`collect_feed`).
+- 아래는 사이클 15 시점 기록.
+
+- 사이클 14: T4r(잘못된 link 처리·`feeds.py` 테스트 보강) PASS 12/12, 전체 184 passed, acceptance 변이 5종 모두 잡힘. `entry_key` 예외 누출 해소.
+- T4r REVIEW 메모: `urljoin`이 잘못된 link에서 `ValueError` → T5에서 항목 link 원문 유지(아래 M2 자체 결정)와 acceptance 케이스로 반영. "잘못된 포트 + userinfo" 테스트 케이스 → T5 작은 보강. `entry_key is None` 건너뛰기 로그 확인 → T7 acceptance에 `caplog`로 넣기로 함. `:0443`·빈 포트는 결함 아님.
+- 다음: T5(`parse_feed`) → T6(`HttpFeedFetcher`).
+- 아래는 사이클 13 시점 기록.
+
+- 사이클 12: T4(`feeds.py` 타입·`FeedFetcher` 프로토콜·`normalize_link`·`entry_key`) PASS 10/12, 전체 176 passed. evaluator가 T3b 회귀(변이 3종 잡힘)도 확인해 PASS → **M1 완료**.
+- T4 REVIEW 메모: 잘못된 포트 link(`https://e.com:abc/`, `:99999`)에서 `entry_key`가 `ValueError`를 누출(파이프라인은 `FeedError`만 잡으므로 한 항목이 피드 처리를 멈출 수 있음) → 아래 M2 자체 결정으로 정하고 T4r에 배정. `test_no_internal_imports`가 상대 import를 못 잡음, `utmost` 경계·IPv6·userinfo·가짜 fetcher 인자 전달 미검증 → T4r. `.lower()` 중복·빈 쿼리 조각 제거는 결함 아님(조치 없음).
+- 다음: T4r(작은 보강) → T5(`parse_feed`, feedparser 도입).
+- 아래는 사이클 12 시점 기록.
+
+- 사이클 11: T3b(처리 대상 조회·상태별 건수·실패 목록·`runs` 시작/종료/중단) generator 완료(153 passed, 변이 3종 확인 보고). 코드로 반영을 확인했으나 REVIEW.md는 아직 T3s 평가 → T3b는 다음 evaluator가 T4와 함께 회귀 확인. T3b가 PASS되면 M1 완료.
+- 다음은 M2 시작: T4(`feeds.py` 타입·프로토콜·글 식별 키, 의존성 없음) → T5(`parse_feed`, feedparser 도입).
+- 아래는 사이클 11 시점 기록.
 
 - 사이클 10: T3s(검색 테스트 보강·`search_articles` limit 검증·`set_article_tags` str 거부) PASS 12/12, 전체 133 passed, acceptance 변이 4종 + 추가 변이 3종 모두 잡힘.
 - T3s REVIEW 메모: T3b 검증을 DB 접근·조기 반환보다 앞에 두고 경계값 `limit=0` 테스트 포함 → T3b acceptance에 반영. 따옴표 든 글의 실제 검색 확인 → T3b 작은 보강으로 배정. `set_article_tags`의 `bytes`·비문자열 원소(`b"ab"`→`97`,`98`, `3`→`'3'`) → M3 `tags.py` 정규화에서 `str`이 아닌 원소를 거부하기로 함(아래 M3).
@@ -51,7 +90,7 @@
 | `summarizer.py` | `Summarizer` 프로토콜 + Claude Code CLI 구현(지시문은 `-p` 인자, 본문은 stdin, `claude_model`이 있을 때만 `--model`), 사전 점검, JSON 검증 | `config` |
 | `tags.py` | 태그 정규화(소문자, 케밥케이스, 공백/중복 제거) | — |
 | `wiki.py` | 글 Markdown 렌더링, slug(충돌·Windows 금지 문자), 원자적 쓰기, 인덱스 전체 재생성 | `repo` |
-| `pipeline.py` | 1회 실행 오케스트레이션: 수집 → 처리량 제한 → 본문 → 요약 → 위키 → 인덱스, 진행 상황 보고, 실패 격리 | 위 전부 (인터페이스로 주입) |
+| `pipeline.py` | 피드 1개 수집(`collect_feed`, M2 T7b)과 1회 실행 오케스트레이션: 수집 → 처리량 제한 → 본문 → 요약 → 위키 → 인덱스, 진행 상황 보고, 실패 격리 | 위 전부 (인터페이스로 주입) |
 | `opml.py` | OPML 파싱 → 피드 URL 목록 | — |
 | `web/` | FastAPI 앱, Jinja2 템플릿, htmx, 정적 CSS. 백그라운드 실행 1개 제한 | `repo`, `pipeline` |
 | `cli.py` | `rss-wiki` 진입점(`serve` 등), 로그 설정 | `config`, `web` |
@@ -70,7 +109,7 @@
 ### M1. 기반: 설정·DB·테스트 체계
 - 범위: `config.py`, `db.py`, `repo.py`의 기본, pytest 도입
 - 완료 조건: 설정 파일 유무와 관계없이 `Settings`를 얻고, 빈 DB에 스키마(FTS5 포함)를 만들 수 있으며, 서버 재시작 시 `fetching_content`/`summarizing` → `new` 복구 함수가 테스트로 검증됨
-- 상태: 진행 중 (T1·T1a·T1b·T2·T2a·T2b·T3·T3r·T3a·T3s 완료, 남은 항목 T3b(처리 대상 조회·상태별 건수·실패 목록, 실행 이력 `runs`와 중단 실행 `aborted` 처리, TASKS에 상세화). T3b PASS로 M1 완료)
+- 상태: 완료 (T1~T3b 모두 PASS, T3b는 사이클 12 evaluator가 회귀 확인)
 - `list_failed_articles`는 `updated_at` 내림차순, 동률이면 `id` 내림차순. `finish_run`의 `processed`/`failed`는 0 이상만 받는다. (자체 결정)
 - 처리 대상 순서는 `id` 오름차순(수집 순)이다. `runs.status`는 `running`/`finished`/`aborted`를 쓰고 스키마 CHECK 대신 `repo.py`에서 검증한다. 서버 시작 시 `db.reset_interrupted`와 `repo.abort_running_runs`를 함께 호출한다(M5에서 연결). (자체 결정)
 - 태그 이름 정규화는 `tags.py`(M3) 책임이고 `repo.py`는 받은 이름을 그대로 저장한다. `list_tag_names`는 글이 연결된 태그만 돌려준다. (자체 결정)
@@ -79,6 +118,35 @@
 ### M2. 수집과 본문 확보
 - 범위: `feeds.py`, `extract.py`, `repo.py` 확장
 - 내용: 글 식별(guid/id → 정규화 link), 중복 건너뛰기, ETag/Last-Modified, 피드 실패 기록(마지막 오류·연속 실패), 첫 수집 최근 10개 + `skipped_backfill`, 실행당 50개 상한(나머지 `new`로 대기), 본문 추출 → `content` → `summary` 대체와 `source` 기록, 최대 길이 자르기, 호스트별 요청 간격
+- 상태: 진행 중 (T4·T4r·T5·T6·T6r·T6s·T7 PASS, 다음 T7b → T8)
+- 항목 분할(예정, 한 세션 크기)
+  - T4 `feeds.py` 타입(`FeedEntry`/`ParsedFeed`/`FetchResult`)·`FeedError` 계층·`FeedFetcher` 프로토콜·`normalize_link`·`entry_key` (의존성 없음) — PASS
+  - T4r 잘못된 link 처리와 `feeds.py` 테스트 보강 (T4 REVIEW 메모) — PASS
+  - T5 `parse_feed`(feedparser, 3.15 설치 불가 시 표준 라이브러리 대체), 항목 link `urljoin` 실패 시 원문 유지 (T4r REVIEW 메모) — PASS
+  - T6 실제 `HttpFeedFetcher`: 조건부 요청(`If-None-Match`/`If-Modified-Since`, 304 → `not_modified`), 타임아웃(`http_timeout_sec`), 일반 클라이언트명 User-Agent(`rss-wiki/0.1`), HTTP 오류·네트워크 오류 → `FeedFetchError`. HTTP 계층은 주입 가능한 `http_get` 함수(기본 `urllib.request`, 새 의존성 없음)로 분리해 테스트에서 가짜로 바꾼다. 앞부분에 bozo·빈 값 고정 테스트 보강 (T5 REVIEW 메모) — PASS
+  - T6r URL 입력 오류의 `FeedFetchError` 포장과 비ASCII path·query 퍼센트 인코딩, 헤더 키 정규화를 `HttpResponse`로 이동, `urllib_get` 성공 경로·2xx 경계·`OSError`/`HTTPException` 매핑 테스트 (T6 REVIEW 메모) — PASS
+  - T6s 피드 URL scheme을 `http`/`https`로 제한(`fetch`·`urllib_get` 양쪽, 요청 전 거부), `fetch`의 비정수 `status` 방어, `HTTPError.headers is None` 방어 (T6r REVIEW 메모) — PASS
+  - T7 `repo.py` 피드 상태 기록: `record_feed_success`(etag·last_modified·오류 초기화·연속 실패 0)/`record_feed_failure`(마지막 오류·연속 실패 +1, etag 유지)/`mark_initial_fetch_done`. 앞부분에 `fetch`의 `bool` status 거부 테스트 1건(T6s REVIEW 메모) — PASS
+  - T7b 수집 함수 `collect_feed(conn, feed_row, fetcher, *, first_fetch_limit) -> CollectResult`를 `pipeline.py`에 둔다(아래 자체 결정): fetch → 새 글 저장(첫 수집이면 `published` 최신 `first_fetch_limit`개 외 `skipped_backfill`) → `record_feed_success`·`mark_initial_fetch_done`, `FeedError`면 `record_feed_failure` 후 예외 없이 실패 결과 반환. `entry_key`가 `None`인 항목은 건너뛰고 경고 로그를 남기며, acceptance에 `caplog` 확인을 넣는다 (T4r REVIEW 메모)
+  - T8 `extract.py`: `ContentExtractor` 프로토콜, 본문 선택(추출 → `content` → `summary`, 너무 짧음 기준), `source` 결정, `content_max_chars` 자르기, HTML 태그 제거. `content`와 `summary`가 같은 값일 수 있음(T5 REVIEW 탐침)을 테스트 케이스로 넣는다
+  - T9 실제 추출 구현(trafilatura 우선, 3.15/Windows 휠 불가 시 대안 검토)과 호스트별 요청 간격, 피드·원문 공통 응답 본문 크기 상한(T6 REVIEW 선택 메모)
+- 실행당 50개 상한은 이미 `repo.list_articles_to_process(limit=...)`로 지원되므로 M5 파이프라인에서 연결한다.
+- 글 식별 키는 `"guid:" + guid` 또는 `"link:" + normalize_link(link)`로 저장한다. 둘 다 없으면 저장하지 않고 건너뛴다(로그). `normalize_link`는 scheme·host 소문자, 기본 포트·fragment·`utm_*` 쿼리 제거, 빈 path → `/`만 하고 path는 건드리지 않는다. (자체 결정)
+- 피드 파싱은 사실상 표준인 `feedparser`를 쓴다(RSS 0.9x/1.0/2.0·Atom·인코딩 처리). 순수 Python이라 3.15에서 동작할 가능성이 높지만, 설치·import가 안 되면 표준 라이브러리 `xml.etree`로 RSS 2.0·Atom 1.0만 지원한다. `published`는 UTC ISO8601 문자열로 정규화한다. (자체 결정)
+- 피드 fetch·parse 실패는 `FeedError` 하위 예외(`FeedFetchError`/`FeedParseError`)로 통일해 파이프라인이 한 종류만 잡게 한다. (자체 결정)
+- 외부 피드의 잘못된 link는 예외로 새지 않게 한다. `normalize_link`는 포트를 해석할 수 없으면(`:abc`, 범위 초과) 기본 포트 제거만 생략하고 host:port 원문을 소문자로 둔다(글을 버리지 않음). 그 밖에 `urlsplit` 자체가 실패하는 link(`http://[::1` 등)는 `entry_key`가 `ValueError`를 잡아 `None`(식별 불가 → 건너뛰고 로그)을 돌려준다. 결과적으로 `entry_key`는 `FeedEntry`에 대해 예외를 던지지 않는다. (자체 결정, T4 REVIEW 메모)
+- `parse_feed`에서 항목 link의 `urljoin`이 `ValueError`를 내면 그 항목의 link를 공백만 제거한 원문으로 두고 피드 전체를 실패시키지 않는다(정보 보존, guid가 없으면 `entry_key`가 `None`이 되어 호출자가 건너뜀). (자체 결정, T4r REVIEW 메모)
+- HTTP는 표준 라이브러리 `urllib.request`로 처리한다(새 의존성 없음). User-Agent는 `rss-wiki/0.1`. 리다이렉트 후 최종 URL을 `parse_feed`의 상대 link 기준으로 쓴다. (자체 결정)
+- 피드 하나의 수집 흐름(`collect_feed`)은 `feeds`와 `repo`를 함께 쓰므로 `pipeline.py`에 둔다. `repo.py`는 `feeds.py` 타입에 의존하지 않고 원시 값만 받는다. 글 저장과 `mark_initial_fetch_done`은 별도 트랜잭션이며, 그 사이에 중단되면 다음 실행에서 첫 수집으로 다시 처리된다(이미 저장된 글은 중복 키로 건너뜀). 이 경우 backfill 판정이 남은 글 기준으로 다시 되는 것은 v1에서 허용한다. (자체 결정)
+- 본문 선택(T8)에서 `content`와 `summary`가 같은 값이면(feedparser가 `content:encoded`만 있는 항목의 `summary`를 본문으로 채움) 같은 본문으로 보고 별도 짧은 요약문으로 가정하지 않는다. `source`는 둘 다 `feed`다. (자체 결정, T5 REVIEW 메모)
+- 피드 URL의 비ASCII 문자(한글 태그 피드 `/tag/한글/feed` 등)는 오류로 거부하지 않는다. `urllib_get`이 요청 전에 path와 query를 UTF-8 퍼센트 인코딩한다(이미 있는 `%XX`는 유지, 이중 인코딩 없음). host는 바꾸지 않는다. 그래도 `Request` 생성이나 `urlopen`에서 `ValueError`(`UnicodeEncodeError` 포함)가 나면 url과 원인을 담은 `FeedFetchError`로 바꾼다. 결과적으로 `HttpFeedFetcher.fetch`는 URL 입력 때문에 `FeedError` 밖의 예외를 던지지 않는다. (자체 결정, T6 REVIEW 메모)
+- 응답 헤더 키 소문자 정규화는 `HttpResponse.__post_init__`에서 한 번만 한다(frozen이므로 `object.__setattr__`). 어떤 `http_get` 구현이든 대소문자가 섞인 키를 줘도 `fetch`가 ETag·Last-Modified를 읽는다. (자체 결정, T6 REVIEW 메모)
+- 피드 URL scheme은 `http`/`https`만 허용한다(대소문자 무시). 그 밖의 scheme(`file`, `ftp`, scheme 없음 등)은 요청을 보내기 전에 url을 담은 `FeedFetchError`로 거부한다. 검사는 `HttpFeedFetcher.fetch`(주입된 `http_get` 호출 전, 계약 경계)와 공개 함수 `urllib_get`(직접 호출 대비 방어) 양쪽에서 같은 내부 함수 하나로 한다. 로컬 파일 읽기를 막고 M4의 "http/https만 링크화" 결정과 맞춘다. 추가 방어로 `fetch`는 `resp.status`가 `int`가 아니면(리다이렉트 등으로 비HTTP 응답이 온 경우) 상태 판정 전에 `FeedFetchError`를 낸다. `HTTPError.headers`가 `None`이면 빈 헤더로 처리한다. M5 피드 추가 화면도 같은 `FeedFetchError`로 거부 메시지를 보여주면 된다. (자체 결정, T6r REVIEW 메모)
+- `fetch`는 `resp.status`가 `bool`이어도 거부한다(`True == 1`이 정수 검사를 통과하지 않게). T7에서 행동을 테스트로 고정했고, 분기 자체는 T7b에서 `match="잘못된 HTTP 상태"`로 고정한다(분기를 지우면 메시지만 `HTTP True`로 바뀌는 동치 동작이므로 메시지로 구분). (자체 결정, T6s·T7 REVIEW 메모)
+- 피드 실패 오류 문자열: `collect_feed`는 `FeedError`를 `str(e).strip() or type(e).__name__`으로 기록한다. 메시지가 빈 예외도 실패 목록에 사유가 남고, `record_feed_failure`의 공백 거부(`ValueError`)가 수집 루프 밖으로 새지 않는다. (자체 결정, T7 REVIEW 메모)
+- 첫 수집 backfill 판정은 식별된 항목을 `published` 내림차순(`None`은 가장 오래된 것으로, 동률이면 피드 순서 유지)으로 정렬해 앞의 `first_fetch_limit`개만 `new`로 둔다. (자체 결정, T7b)
+- T8 전 확인 사항: 원문 본문은 저장하지 않으므로(U4), 실행당 50개 상한 때문에 `new`로 대기한 글은 다음 실행에서 피드 `content`/`summary` 대체 본문을 메모리에 갖고 있지 않다(조건부 요청이 304면 피드를 다시 받지도 않는다). T8/M5 설계 때 planner가 처리 방법(예: 대기 글은 원문 추출만 시도하고 실패하면 조건 헤더 없이 피드를 다시 받기, 또는 피드 대체 본문만 저장)을 정한다. 스키마를 바꾸는 안이면 되돌리기 어려운 결정으로 보고 결정 합의 절차를 거친다.
+- 응답 본문 크기 상한은 T9에서 원문 페이지 가져오기와 함께 공통 상한(기본 10MB, 초과 시 `FeedFetchError`·추출 실패)으로 넣는다. 피드와 원문 HTTP 경로가 같은 상한을 쓰도록 하기 위해 T6r에서는 넣지 않는다. (자체 결정, T6 REVIEW 선택 메모)
 
 ### M3. 요약과 태그
 - 범위: `summarizer.py`, `tags.py`
@@ -88,10 +156,12 @@
 ### M4. Markdown 위키
 - 범위: `wiki.py`
 - 내용: `articles/YYYY/MM/{slug}.md`(PRD 4.6 frontmatter 형식), `index.md`·`feeds/`·`tags/` 전체 재생성, slug 충돌 접미사, Windows 금지 문자 제거, 원자적 쓰기, 쓰기 실패 시 `failed`
+- 원문 링크 안전성: 피드의 link는 `javascript:` 등 임의 scheme일 수 있다(T5 REVIEW 탐침). 위키 Markdown의 `[원문 보기](...)`와 웹 UI(M5)의 `href`는 scheme이 `http`/`https`일 때만 링크로 만들고, 그 밖에는 링크 없이 텍스트로만 표시한다. frontmatter `url`에는 원문을 그대로 기록한다. Jinja2 자동 이스케이프는 켠다. (자체 결정, T5 REVIEW 메모)
 
 ### M5. 실행 파이프라인과 웹 UI
 - 범위: `pipeline.py`, `web/`, `cli.py`, `opml.py`
 - 내용: `rss-wiki serve`(127.0.0.1, 포트 설정), 요약 목록/상세 + 피드·태그 필터, 피드 관리(추가 시 파싱 검증·제목 자동, 삭제, 활성/비활성, OPML 가져오기), "새 글 가져오기" 백그라운드 실행(동시 1개) + htmx 폴링 진행 표시, 실패 목록과 수동 재시도, FTS5 검색 화면
+- 피드 추가 폼과 OPML 가져오기는 URL을 `strip()`한 뒤 검증·저장한다(`feeds.url`에 앞뒤 공백이 남지 않게). (자체 결정, T6s REVIEW 메모)
 
 ### M6. 운영 마감과 완료 기준 검증
 - 범위: 로그(파일 + 콘솔), README(`rss-wiki.toml` 예시와 키 설명, 파일 인코딩 UTF-8(BOM 없음)·`~` 확장·상대 경로 기준(설정 파일 디렉터리) 안내 포함, T1/T1a/T1b REVIEW 메모; WAL로 생기는 `rss-wiki.db-wal`/`-shm`과 백업 방법(서버 정지 후 세 파일 함께 복사 또는 `sqlite3 .backup`) 안내, T2a REVIEW 메모), 멱등성/실패 격리 통합 테스트
@@ -114,6 +184,7 @@
 - `repo.py`의 쓰기 함수는 없는 id를 조용히 무시하지 않는다. 글 대상 함수는 `ArticleNotFoundError`, 피드 대상 함수는 `FeedNotFoundError`(둘 다 `LookupError` 하위)를 낸다. 단, `delete_feed`는 멱등으로 없는 id도 예외 없이 넘어간다. `DuplicateFeedError`는 `feeds.url`의 UNIQUE 위반일 때만 쓴다. (자체 결정, T3 REVIEW 메모)
 - `repo.py` 쓰기 함수는 각자 `with conn:`으로 한 트랜잭션씩 커밋하며, 호출자는 열린 트랜잭션에서 부르지 않는다(성공 시 호출자 작업까지 커밋, 예외 시 함께 롤백되기 때문). 파이프라인(M5)은 글 하나의 처리 단계마다 repo 함수를 따로 호출하고, 여러 쓰기를 원자적으로 묶어야 하는 경우가 생기면 그 묶음 전체를 `repo.py`의 새 함수 하나로 만든다. 모듈 독스트링에 명시한다(T3a). (자체 결정, T3r REVIEW 메모)
 - `repo.py`의 개수 인자(`limit`, `max_attempts`)는 1 미만이면 DB 접근 전에 `ValueError`로 거부한다(SQLite 음수 `LIMIT`이 무제한이 되는 것 방지). 목록 인자에 `str`이 오면 `TypeError`로 거부한다(글자 단위 분해 방지). (자체 결정, T3a REVIEW 메모)
+- acceptance 작성 규칙: 변이 목록에는 표준 라이브러리가 이미 보장하는 동작을 지우는 변이(예: `urlsplit` 결과 scheme의 `.lower()`)처럼 동작이 같은 동치 변이를 넣지 않는다. IMPL.md에 적은 자체 결정은 테스트로 고정한다. (자체 결정, T6s REVIEW 메모)
 - `migrate`는 열린 트랜잭션이 있는 연결로 호출되면 경고 대신 `RuntimeError`로 거부한다(`executescript`의 암묵 커밋 방지). 서버 시작 시 새 연결에서 부르는 것이 정상 경로다. (자체 결정)
 
 ## 합의된 결정 (2026-11-23, 사이클 2에서 PRD 반영)

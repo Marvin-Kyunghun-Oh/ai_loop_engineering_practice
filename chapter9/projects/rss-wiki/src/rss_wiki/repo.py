@@ -80,6 +80,60 @@ def delete_feed(conn: sqlite3.Connection, feed_id: int) -> None:
         conn.execute("DELETE FROM feeds WHERE id = ?", (feed_id,))
 
 
+def _require_feed(cur: sqlite3.Cursor, feed_id: int) -> None:
+    if cur.rowcount == 0:
+        raise FeedNotFoundError(f"피드 id {feed_id}를 찾을 수 없습니다")
+
+
+def record_feed_success(
+    conn: sqlite3.Connection, feed_id: int, *, etag: str | None, last_modified: str | None
+) -> None:
+    """수집 성공(304 포함)을 기록한다. etag·last_modified를 주어진 값으로 저장하고 실패 상태를 지운다.
+
+    Raises:
+        FeedNotFoundError: 없는 feed_id.
+    """
+    with conn:
+        cur = conn.execute(
+            "UPDATE feeds SET etag = ?, last_modified = ?, last_error = NULL, "
+            "consecutive_failures = 0 WHERE id = ?",
+            (etag, last_modified, feed_id),
+        )
+        _require_feed(cur, feed_id)
+
+
+def record_feed_failure(conn: sqlite3.Connection, feed_id: int, error: str) -> int:
+    """수집 실패를 기록하고 올린 consecutive_failures를 반환한다. etag·last_modified는 유지한다.
+
+    Raises:
+        ValueError: error가 str이 아니거나 공백뿐이다(DB 접근 전).
+        FeedNotFoundError: 없는 feed_id.
+    """
+    if not isinstance(error, str) or not error.strip():
+        raise ValueError("error는 비어 있지 않은 문자열이어야 합니다")
+    with conn:
+        cur = conn.execute(
+            "UPDATE feeds SET last_error = ?, consecutive_failures = consecutive_failures + 1 "
+            "WHERE id = ?",
+            (error, feed_id),
+        )
+        _require_feed(cur, feed_id)
+        return conn.execute(
+            "SELECT consecutive_failures FROM feeds WHERE id = ?", (feed_id,)
+        ).fetchone()[0]
+
+
+def mark_initial_fetch_done(conn: sqlite3.Connection, feed_id: int) -> None:
+    """첫 수집 완료를 표시한다(멱등).
+
+    Raises:
+        FeedNotFoundError: 없는 feed_id.
+    """
+    with conn:
+        cur = conn.execute("UPDATE feeds SET initial_fetch_done = 1 WHERE id = ?", (feed_id,))
+        _require_feed(cur, feed_id)
+
+
 # ---------------------------------------------------------------- 글
 
 

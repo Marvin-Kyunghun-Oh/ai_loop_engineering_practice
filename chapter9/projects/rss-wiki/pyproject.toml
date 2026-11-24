@@ -7,7 +7,9 @@ authors = [
     { name = "Marvin-Kyunghun-Oh", email = "france1988@naver.com" }
 ]
 requires-python = ">=3.15"
-dependencies = []
+dependencies = [
+    "feedparser>=6.0.14",
+]
 
 [project.scripts]
 rss-wiki = "rss_wiki:main"
