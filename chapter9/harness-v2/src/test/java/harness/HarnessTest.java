@@ -160,6 +160,44 @@ class HarnessTest {
     }
 
     @Nested
+    @DisplayName("결정 합의 (DecisionResolver 연결)")
+    class Decisions {
+
+        @Test
+        @DisplayName("evaluator까지 마친 뒤 두 선택이 같으면 합의를 적고 사이클을 정상 완료한다")
+        void agreementAfterEvaluator() {
+            TextFiles.write(files.decisionsDir().resolve("db.md"), "후보 A, B\n");
+            runner.expect(Role.PLANNER, writeCurrent("T1").andThen(f ->
+                            TextFiles.write(f.decisionsDir().resolve("db.planner.md"), "선택: A\n")), success("0.1", "x"))
+                    .expect(Role.GENERATOR, success("0.1", "x"))
+                    .expect(Role.EVALUATOR, f -> TextFiles.write(f.decisionsDir().resolve("db.evaluator.md"), "선택: A\n"),
+                            success("0.1", "x"));
+
+            harness(config("max_iterations: 50", "max_iterations: 1")).run();
+
+            assertTrue(TextFiles.read(files.decisionsDir().resolve("db.md")).contains("합의: A (시도 1회)"));
+            assertEquals(1, files.readCycleCount());
+        }
+
+        @Test
+        @DisplayName("3회째 불발로 HALT가 생기면 카운터를 저장하고 멈춘다")
+        void thirdFailureHalts() {
+            TextFiles.write(files.decisionsDir().resolve("db.md"), "후보 A, B\n합의 불발\n합의 불발\n");
+            runner.expect(Role.PLANNER, writeCurrent("T1").andThen(f ->
+                            TextFiles.write(f.decisionsDir().resolve("db.planner.md"), "선택: A\n")), success("0.1", "x"))
+                    .expect(Role.GENERATOR, success("0.1", "x"))
+                    .expect(Role.EVALUATOR, f -> TextFiles.write(f.decisionsDir().resolve("db.evaluator.md"), "선택: B\n"),
+                            success("0.1", "x"));
+
+            int exit = harness(config()).run();
+
+            assertEquals(Harness.EXIT_HALT, exit);
+            assertTrue(haltText().startsWith("사유: 결정 합의 3회 불발: db\n"), haltText());
+            assertEquals(1, files.readCycleCount());
+        }
+    }
+
+    @Nested
     @DisplayName("에이전트가 남긴 종료 신호")
     class AgentSignals {
 

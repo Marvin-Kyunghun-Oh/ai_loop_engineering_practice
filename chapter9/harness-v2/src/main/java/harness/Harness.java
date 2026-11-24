@@ -6,6 +6,7 @@ import harness.claude.ClaudeRunner;
 import harness.config.HarnessConfig;
 import harness.config.HarnessConfig.Limits;
 import harness.cost.CostLedger;
+import harness.decision.DecisionResolver;
 import harness.journal.JournalWriter;
 import harness.policy.Role;
 import harness.policy.ToolPolicy;
@@ -28,7 +29,6 @@ import java.util.Optional;
  *
  * <p>아직 연결하지 않은 것 (DESIGN 8절)
  * <ul>
- *   <li>8단계 DecisionResolver: 사이클 끝의 결정 합의</li>
  *   <li>9단계 TaskArchiver, reviews.csv: 사이클 시작의 아카이브, evaluator 판정을 JOURNAL에 덧붙이기</li>
  *   <li>10단계 Bootstrap: PRD가 없을 때의 대화형 planner. 지금은 PRD가 없으면 종료한다</li>
  * </ul>
@@ -46,6 +46,7 @@ public final class Harness {
     private final PromptProvider prompts;
     private final ToolPolicy toolPolicy;
     private final JournalWriter journal;
+    private final DecisionResolver decisions;
     private final Clock clock;
     private final PrintStream console;
 
@@ -66,6 +67,7 @@ public final class Harness {
         this.prompts = prompts;
         this.toolPolicy = new ToolPolicy(config.permissions());
         this.journal = new JournalWriter(files.journal(), clock);
+        this.decisions = new DecisionResolver(files);
         this.clock = clock;
         this.console = console;
     }
@@ -195,7 +197,8 @@ public final class Harness {
         }
 
         // TODO(9단계): REVIEW 판정을 .harness/reviews.csv에 저장한다.
-        // TODO(8단계): DecisionResolver로 결정 합의를 판정한다.
+        // 합의 불발 3회면 DecisionResolver가 HALT를 쓴다. 에이전트가 쓴 HALT와 같이 카운터를 저장한다(v1과 같음).
+        decisions.resolve(cycle).forEach(this::log);
 
         if (files.isHalted()) {
             return CycleEnd.HALTED_BY_AGENT;
