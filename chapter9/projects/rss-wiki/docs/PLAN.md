@@ -1,9 +1,25 @@
 # PLAN: rss-wiki
 
 - 기준 문서: docs/PRD.md (초안 v1)
-- 최종 갱신: 2026-11-24 (planner, 사이클 20)
+- 최종 갱신: 2026-11-24 (planner, 사이클 23)
 
-## 현재 상태 (2026-11-24, 사이클 20 시작 시점)
+## 현재 상태 (2026-11-24, 사이클 23 시작 시점)
+
+- 사이클 22: T8r(`html_to_text` 블록 18개·버리기 3개 확장, `<br/>`·짝 없는 `</script>`·단어 중간 인라인 태그 고정, 빈 값 64건 조합) PASS 11/12, `tests/extract` 98 passed, 전체 356 passed, acceptance 변이 5종 잡힘.
+- T8r REVIEW 메모: 새 블록 태그 대부분이 개별 테스트로 고정되지 않았다(감점 사유). `header`·`footer`·`table`·`nav`·`main` 등을 빼는 추가 변이 5종이 살아남았다. 버리기 깊이 카운터가 태그 종류를 구분하지 않아 `<noscript>a</script>b</noscript>ok` → `bok`이 된다(참고). → 둘 다 T8s(T9a 앞, 테스트 리터럴 목록 + 태그별 깊이)에 배정했다. 아래 M2 자체 결정 "버리기 깊이 태그별 분리"를 따른다. 닫히지 않은 버리기 태그가 뒤 내용을 버리는 것과 `textarea`·`iframe`·`option` 미포함은 결함이 아니라서 조치하지 않는다.
+- 다음: T8s → T9a → T9b. M2는 T9b가 끝나면 완료된다.
+- 아래는 사이클 22 시점 기록.
+
+- 사이클 21: T8(`extract.py` `ContentExtractor`·`html_to_text`·`choose_body`·`Body`) PASS 11/12, `tests/extract` 32 passed, 전체 290 passed, acceptance 변이 9종 잡힘. 같은 evaluator가 T7b 회귀·변이 7종을 확인해 **T7b PASS**(체크 유지).
+- T8 REVIEW 메모: IMPL에 적은 자체 결정 두 가지(`<br/>` startendtag 공백, 짝 없는 `</script>` 깊이 방어)와 단어 중간 인라인 시작 태그(`a<b>c</b>d`)가 테스트로 고정되지 않았다(감점 사유). IMPL의 "(6) 시작 태그만 바꾸면 동치" 서술은 틀렸다. HTML5 블록 요소(`dt`/`dd`, `figure` 등) 누락으로 단어가 붙고, `title`·`noscript`·`template` 내용이 남는다 → 아래 M2 자체 결정 "HTML 텍스트화 블록·버리기 목록 확장"으로 정하고 T8r(T9a 앞)에 배정했다. `a<b` 뒤 글자 유실과 `max_chars=True`는 결함이 아니라서 조치하지 않는다.
+- T9를 둘로 나눴다. T9a는 HTTP 공통 기반(응답 크기 상한, 호스트별 요청 간격 래퍼, `feeds.py`), T9b는 실제 원문 추출기(`extract.py`, trafilatura)다. 아래 M2 자체 결정 "원문 추출기 HTTP 주입"을 따른다.
+- 다음: T8r → T9a → T9b. M2는 T9b가 끝나면 완료된다.
+- 아래는 사이클 21 시점 기록.
+
+- 사이클 20: T7b(`pipeline.collect_feed`·`CollectResult`, bool status `match` 고정) generator 완료 보고(전체 258 passed, 변이 7종 모두 잡힘). planner가 코드로 확인했다: 검증이 fetcher 호출 전, `FeedError`의 빈 메시지 대체, `None` 항목 경고 로그, 첫 수집 `published` 내림차순 stable 정렬, 이미 있는 글 미집계, 성공 기록 후 `mark_initial_fetch_done`, 테스트 9개 함수(파라미터 포함 12건). 직전 REVIEW.md는 아직 T7 평가 → T7b는 다음 evaluator가 T8과 함께 회귀·변이를 확인한다. FAIL이면 다음 planner가 체크를 해제한다.
+- 이번 사이클에 "T8 전 확인 사항"(대기·재시도 글의 피드 대체 본문 부재)을 스키마 변경 없는 자체 결정으로 정했다(아래 M2 "대기·재시도 글의 본문 확보"). 스키마·저장 형식을 바꾸지 않으므로 결정 합의 절차 대상이 아니다.
+- 다음: T8(`extract.py` 본문 선택·HTML 텍스트화·자르기, 순수 함수) → T9(실제 추출 구현).
+- 아래는 사이클 20 시점 기록.
 
 - 사이클 19: T7(`record_feed_success`·`record_feed_failure`·`mark_initial_fetch_done`, `status=True` 거부 테스트) PASS 12/12, `tests/repo` 85 passed, 전체 248 passed. 의미 있는 acceptance 변이 3종과 evaluator 추가 변이 4종이 모두 잡혔다. 변이 (4) bool 검사 제거는 동치 변이였다(메시지만 바뀜).
 - T7 REVIEW 메모: 빈 메시지 `FeedError`가 `record_feed_failure`의 공백 거부에 걸려 `ValueError`가 샐 수 있음 → M2 자체 결정(아래 "피드 실패 오류 문자열")으로 정하고 T7b에 테스트 1건과 변이로 넣었다. `caplog` 단언은 경고 건수와 피드 url까지 확인하게 했다. bool 분기는 `match="잘못된 HTTP 상태"`로 고정한다(T7b 작은 보강). T7b 변이 (2) "첫 수집 판정 무시"가 잡히도록 세 번째 호출의 새 항목을 가장 오래된 날짜로 정했다. 미커밋 `feeds.py`·`tests/feeds/`·`feedparser` 의존성은 사람의 중간 커밋 대상이다(planner 권한 밖).
@@ -86,7 +102,7 @@
 | `db.py` | SQLite 연결(WAL, `busy_timeout`), 스키마 생성/마이그레이션(`PRAGMA user_version`, 실패 시 롤백, 미래 버전 거부, 열린 트랜잭션에서 호출 거부), FTS5, 중단된 상태 복구. `Path`만 받고 `config`에 의존하지 않음 | 표준 라이브러리만 |
 | `repo.py` | 피드/글/태그/실행 이력 CRUD와 상태 전이 함수(항상 `updated_at` 갱신), FTS 검색 질의 생성(접두사 검색) (SQL은 여기와 `db.py`에만) | `db` |
 | `feeds.py` | `FeedFetcher` 프로토콜 + 실제 구현(HTTP 조건부 요청, 파싱), 글 식별 키 계산 | — |
-| `extract.py` | `ContentExtractor` 프로토콜 + 실제 구현, 피드 본문 대체, 최대 길이 자르기 | — |
+| `extract.py` | `ContentExtractor` 프로토콜 + 실제 구현, 피드 본문 HTML 텍스트화, 본문 선택(`choose_body`)과 `source` 결정, 최대 길이 자르기 | — |
 | `summarizer.py` | `Summarizer` 프로토콜 + Claude Code CLI 구현(지시문은 `-p` 인자, 본문은 stdin, `claude_model`이 있을 때만 `--model`), 사전 점검, JSON 검증 | `config` |
 | `tags.py` | 태그 정규화(소문자, 케밥케이스, 공백/중복 제거) | — |
 | `wiki.py` | 글 Markdown 렌더링, slug(충돌·Windows 금지 문자), 원자적 쓰기, 인덱스 전체 재생성 | `repo` |
@@ -118,7 +134,7 @@
 ### M2. 수집과 본문 확보
 - 범위: `feeds.py`, `extract.py`, `repo.py` 확장
 - 내용: 글 식별(guid/id → 정규화 link), 중복 건너뛰기, ETag/Last-Modified, 피드 실패 기록(마지막 오류·연속 실패), 첫 수집 최근 10개 + `skipped_backfill`, 실행당 50개 상한(나머지 `new`로 대기), 본문 추출 → `content` → `summary` 대체와 `source` 기록, 최대 길이 자르기, 호스트별 요청 간격
-- 상태: 진행 중 (T4·T4r·T5·T6·T6r·T6s·T7 PASS, 다음 T7b → T8)
+- 상태: 진행 중 (T4·T4r·T5·T6·T6r·T6s·T7·T7b·T8·T8r PASS, 다음 T8s → T9a → T9b)
 - 항목 분할(예정, 한 세션 크기)
   - T4 `feeds.py` 타입(`FeedEntry`/`ParsedFeed`/`FetchResult`)·`FeedError` 계층·`FeedFetcher` 프로토콜·`normalize_link`·`entry_key` (의존성 없음) — PASS
   - T4r 잘못된 link 처리와 `feeds.py` 테스트 보강 (T4 REVIEW 메모) — PASS
@@ -128,8 +144,11 @@
   - T6s 피드 URL scheme을 `http`/`https`로 제한(`fetch`·`urllib_get` 양쪽, 요청 전 거부), `fetch`의 비정수 `status` 방어, `HTTPError.headers is None` 방어 (T6r REVIEW 메모) — PASS
   - T7 `repo.py` 피드 상태 기록: `record_feed_success`(etag·last_modified·오류 초기화·연속 실패 0)/`record_feed_failure`(마지막 오류·연속 실패 +1, etag 유지)/`mark_initial_fetch_done`. 앞부분에 `fetch`의 `bool` status 거부 테스트 1건(T6s REVIEW 메모) — PASS
   - T7b 수집 함수 `collect_feed(conn, feed_row, fetcher, *, first_fetch_limit) -> CollectResult`를 `pipeline.py`에 둔다(아래 자체 결정): fetch → 새 글 저장(첫 수집이면 `published` 최신 `first_fetch_limit`개 외 `skipped_backfill`) → `record_feed_success`·`mark_initial_fetch_done`, `FeedError`면 `record_feed_failure` 후 예외 없이 실패 결과 반환. `entry_key`가 `None`인 항목은 건너뛰고 경고 로그를 남기며, acceptance에 `caplog` 확인을 넣는다 (T4r REVIEW 메모)
-  - T8 `extract.py`: `ContentExtractor` 프로토콜, 본문 선택(추출 → `content` → `summary`, 너무 짧음 기준), `source` 결정, `content_max_chars` 자르기, HTML 태그 제거. `content`와 `summary`가 같은 값일 수 있음(T5 REVIEW 탐침)을 테스트 케이스로 넣는다
-  - T9 실제 추출 구현(trafilatura 우선, 3.15/Windows 휠 불가 시 대안 검토)과 호스트별 요청 간격, 피드·원문 공통 응답 본문 크기 상한(T6 REVIEW 선택 메모)
+  - T8 `extract.py`(순수 함수, 표준 라이브러리만): `ContentExtractor` 프로토콜, `html_to_text`, 본문 선택 `choose_body`(추출 → `content` → `summary` → 짧은 추출, 아래 자체 결정), `source` 결정, `content_max_chars` 자르기. `content`와 `summary`가 같은 값일 수 있음(T5 REVIEW 탐침)을 테스트 케이스로 넣는다
+  - T8r `html_to_text` 테스트 고정(`<br/>`, 짝 없는 `</script>`, 단어 중간 인라인 태그)과 블록·버리기 목록 확장 (T8 REVIEW 메모) — PASS
+  - T8s 블록·버리기 태그를 테스트 리터럴 목록으로 하나씩 고정, 버리기 깊이를 태그별로 분리 (T8r REVIEW 메모)
+  - T9a HTTP 공통 기반(`feeds.py`): `urllib_get` 응답 본문 크기 상한(`MAX_RESPONSE_BYTES`), 호스트별 요청 간격 래퍼 `throttle_by_host(http_get, ...)`(T6 REVIEW 선택 메모)
+  - T9b 실제 원문 추출기 `HttpContentExtractor`(`extract.py`, 주입된 `http_get` + trafilatura, 3.15/Windows에서 설치 불가 시 `html_to_text` 기반 대체)
 - 실행당 50개 상한은 이미 `repo.list_articles_to_process(limit=...)`로 지원되므로 M5 파이프라인에서 연결한다.
 - 글 식별 키는 `"guid:" + guid` 또는 `"link:" + normalize_link(link)`로 저장한다. 둘 다 없으면 저장하지 않고 건너뛴다(로그). `normalize_link`는 scheme·host 소문자, 기본 포트·fragment·`utm_*` 쿼리 제거, 빈 path → `/`만 하고 path는 건드리지 않는다. (자체 결정)
 - 피드 파싱은 사실상 표준인 `feedparser`를 쓴다(RSS 0.9x/1.0/2.0·Atom·인코딩 처리). 순수 Python이라 3.15에서 동작할 가능성이 높지만, 설치·import가 안 되면 표준 라이브러리 `xml.etree`로 RSS 2.0·Atom 1.0만 지원한다. `published`는 UTC ISO8601 문자열로 정규화한다. (자체 결정)
@@ -145,8 +164,14 @@
 - `fetch`는 `resp.status`가 `bool`이어도 거부한다(`True == 1`이 정수 검사를 통과하지 않게). T7에서 행동을 테스트로 고정했고, 분기 자체는 T7b에서 `match="잘못된 HTTP 상태"`로 고정한다(분기를 지우면 메시지만 `HTTP True`로 바뀌는 동치 동작이므로 메시지로 구분). (자체 결정, T6s·T7 REVIEW 메모)
 - 피드 실패 오류 문자열: `collect_feed`는 `FeedError`를 `str(e).strip() or type(e).__name__`으로 기록한다. 메시지가 빈 예외도 실패 목록에 사유가 남고, `record_feed_failure`의 공백 거부(`ValueError`)가 수집 루프 밖으로 새지 않는다. (자체 결정, T7 REVIEW 메모)
 - 첫 수집 backfill 판정은 식별된 항목을 `published` 내림차순(`None`은 가장 오래된 것으로, 동률이면 피드 순서 유지)으로 정렬해 앞의 `first_fetch_limit`개만 `new`로 둔다. (자체 결정, T7b)
-- T8 전 확인 사항: 원문 본문은 저장하지 않으므로(U4), 실행당 50개 상한 때문에 `new`로 대기한 글은 다음 실행에서 피드 `content`/`summary` 대체 본문을 메모리에 갖고 있지 않다(조건부 요청이 304면 피드를 다시 받지도 않는다). T8/M5 설계 때 planner가 처리 방법(예: 대기 글은 원문 추출만 시도하고 실패하면 조건 헤더 없이 피드를 다시 받기, 또는 피드 대체 본문만 저장)을 정한다. 스키마를 바꾸는 안이면 되돌리기 어려운 결정으로 보고 결정 합의 절차를 거친다.
+- 대기·재시도 글의 본문 확보(사이클 21에 "T8 전 확인 사항"을 해소): 피드 본문도 DB에 저장하지 않는다(U4의 취지와 스키마 `_V1`을 유지, 스키마 변경 없음). M5 실행 파이프라인은 이번 실행에서 받은 항목을 메모리 캐시 `{(feed_id, entry_key): FeedEntry}`에 둔다. 처리 대상 글(`new` 대기분, `failed` 재시도분 포함)의 항목이 캐시에 없으면 먼저 원문 추출만 해 본다. 추출 결과가 `choose_body`의 "충분한 길이"를 넘지 못하면, 그 피드를 실행당 최대 1회 조건 헤더 없이(`etag=None`, `last_modified=None`) 다시 받아 캐시를 채운 뒤 `choose_body`를 다시 부른다. 그래도 본문이 없으면 PRD 7 "원문도 피드 본문도 없음"으로 `failed`다. 이 재요청은 본문 확보용 예외 경로이고 PRD 4.1 조건부 요청 규칙(수집 단계)은 그대로다. 재요청 결과의 새 항목은 저장하지 않는다(수집은 `collect_feed`만 한다). 되돌리기 쉬운 결정이다. 나중에 저장 방식으로 바꾸려면 그때 결정 합의를 거친다. (자체 결정)
+- 본문 선택 규칙(T8): 원문 추출 텍스트가 공백 제거 후 `min_chars`(기본 200자, 모듈 상수 `MIN_EXTRACTED_CHARS`, 설정 키는 만들지 않음) 이상이면 `extracted`. 아니면 피드 `content`를 HTML 텍스트화한 값이 비어 있지 않으면 `feed`, 다음으로 `summary`도 같은 방식으로 본다. 피드 본문이 모두 비었는데 짧은 추출 텍스트가 있으면 실패 대신 그것을 `extracted`로 쓴다. 넷 다 없으면 `None`(호출자가 `failed`). 피드 본문에만 HTML 텍스트화를 적용한다(추출기 결과는 이미 평문). 선택한 텍스트는 `max_chars`(설정 `content_max_chars`)로 자른다. (자체 결정)
+- HTML 텍스트화(T8): 표준 라이브러리 `html.parser`로 태그를 없애고 문자 참조를 풀며 `script`·`style` 안 내용은 버린다. 블록 요소(`p`, `div`, `br`, `li`, `h1`~`h6`, `tr`, `blockquote`, `pre` 등) 경계에는 공백을 넣고 인라인 요소 경계에는 넣지 않는다. 연속 공백은 공백 하나로 합치고 앞뒤를 제거한다. 새 의존성은 없다. (자체 결정)
 - 응답 본문 크기 상한은 T9에서 원문 페이지 가져오기와 함께 공통 상한(기본 10MB, 초과 시 `FeedFetchError`·추출 실패)으로 넣는다. 피드와 원문 HTTP 경로가 같은 상한을 쓰도록 하기 위해 T6r에서는 넣지 않는다. (자체 결정, T6 REVIEW 선택 메모)
+- HTML 텍스트화 블록·버리기 목록 확장(T8r): `_BLOCK_TAGS`에 `dl`, `dt`, `dd`, `table`, `thead`, `tbody`, `tfoot`, `caption`, `figure`, `figcaption`, `header`, `footer`, `nav`, `main`, `aside`, `details`, `summary`, `address`를 더한다. `_SKIP_TAGS`에 `title`, `noscript`, `template`을 더한다(내용 버림). 짝 없는 끝 태그는 깊이를 0 아래로 내리지 않는다(지금 동작 유지, 테스트로 고정). 새 의존성은 없다. (자체 결정, T8 REVIEW 메모)
+- 버리기 깊이 태그별 분리(T8s): `_TextParser`는 버리는 태그마다 깊이를 따로 센다. 끝 태그는 같은 태그의 깊이가 0보다 클 때만 1 줄이고, 어느 태그든 깊이가 남아 있으면 텍스트를 버린다. 다른 종류의 짝 없는 끝 태그(`<noscript>` 안의 `</script>`)가 버리기를 끝내지 않게 하기 위함이다. 테스트는 태그 목록을 모듈 상수에서 읽지 않고 리터럴로 적는다(목록 원소 제거 변이를 잡기 위함). 리터럴과 상수가 같은지 확인하는 테스트도 둔다. 새 의존성은 없다. (자체 결정, T8r REVIEW 메모)
+- 원문 추출기 HTTP 주입(T9a·T9b): `extract.py`는 내부 모듈을 import하지 않는 원칙을 유지한다. 실제 추출기 `HttpContentExtractor`는 `feeds.HttpGet`과 같은 모양의 `http_get` 함수를 생성자 인자로 받는다. 연결은 M5 파이프라인이 `feeds.urllib_get`을 넘겨서 한다. 호스트별 요청 간격은 `feeds.throttle_by_host(http_get, *, min_interval=1.0, clock=time.monotonic, sleep=time.sleep) -> HttpGet` 래퍼 하나로 처리한다. 파이프라인은 실행마다 래퍼 하나를 만들어 피드 fetcher와 원문 추출기가 함께 쓰게 한다. 같은 호스트(`urlsplit(url).hostname`, 소문자)에 대한 직전 요청 시작 시각으로부터 `min_interval`초가 지나지 않았으면 남은 시간만큼 `sleep`한다. 호스트를 해석할 수 없는 url은 기다리지 않고 그대로 넘긴다(오류 처리는 안쪽 `http_get`이 한다). 간격 기본값은 1초이고 설정 키는 만들지 않는다. 순차 처리(U3)라 스레드 안전성은 요구하지 않는다. (자체 결정)
+- 응답 크기 상한(T9a): `feeds.MAX_RESPONSE_BYTES = 10 * 1024 * 1024`. `urllib_get`은 `resp.read(MAX_RESPONSE_BYTES + 1)`로 읽어서 상한을 넘으면 url과 상한을 담은 `FeedFetchError`를 낸다. `urllib_get`에 키워드 인자 `max_bytes`(기본 `MAX_RESPONSE_BYTES`)를 두되, `HttpGet` 시그니처(위치 인자 3개)는 바꾸지 않는다. 원문 추출기는 `http_get`이 낸 예외를 `Exception`으로 잡아서 `None`을 돌려준다(`extract.py`는 `feeds`를 import하지 않음, T9b, `ContentExtractor` 계약). (자체 결정)
 
 ### M3. 요약과 태그
 - 범위: `summarizer.py`, `tags.py`
@@ -162,6 +187,7 @@
 - 범위: `pipeline.py`, `web/`, `cli.py`, `opml.py`
 - 내용: `rss-wiki serve`(127.0.0.1, 포트 설정), 요약 목록/상세 + 피드·태그 필터, 피드 관리(추가 시 파싱 검증·제목 자동, 삭제, 활성/비활성, OPML 가져오기), "새 글 가져오기" 백그라운드 실행(동시 1개) + htmx 폴링 진행 표시, 실패 목록과 수동 재시도, FTS5 검색 화면
 - 피드 추가 폼과 OPML 가져오기는 URL을 `strip()`한 뒤 검증·저장한다(`feeds.url`에 앞뒤 공백이 남지 않게). (자체 결정, T6s REVIEW 메모)
+- 1회 실행의 본문 단계는 M2 자체 결정 "대기·재시도 글의 본문 확보"(실행 내 항목 캐시, 캐시에 없으면 추출 먼저, 부족하면 피드를 조건 헤더 없이 실행당 1회 재요청)를 따른다.
 
 ### M6. 운영 마감과 완료 기준 검증
 - 범위: 로그(파일 + 콘솔), README(`rss-wiki.toml` 예시와 키 설명, 파일 인코딩 UTF-8(BOM 없음)·`~` 확장·상대 경로 기준(설정 파일 디렉터리) 안내 포함, T1/T1a/T1b REVIEW 메모; WAL로 생기는 `rss-wiki.db-wal`/`-shm`과 백업 방법(서버 정지 후 세 파일 함께 복사 또는 `sqlite3 .backup`) 안내, T2a REVIEW 메모), 멱등성/실패 격리 통합 테스트

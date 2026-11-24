@@ -444,3 +444,95 @@
     - 변이 확인(IMPL.md에 결과 기록, 코드는 원복, 임시 복사본 방식): (1) 정렬을 오름차순으로 (2) 첫 수집 판정 무시(항상 첫 수집 취급) (3) `FeedError` 분기에서 `record_feed_failure` 생략 (4) `mark_initial_fetch_done` 생략 (5) 경고 로그 제거 (6) 빈 메시지 대체(`or type(e).__name__`) 제거 (7) `feeds.py:283`의 `or isinstance(resp.status, bool)` 제거 — 일곱 경우 모두 테스트 하나 이상 실패 (모두 동작이나 메시지를 바꾸는 변이다. PLAN "acceptance 작성 규칙")
     - `uv run pytest` 전체 통과(T7 이후 248개 회귀 없음), 새 의존성 없음, `db.py`·`repo.py`·`feeds.py` 변경 없음, `pipeline.py`는 `rss_wiki` 안에서 `feeds`·`repo`만 import
   - touch: `src/rss_wiki/pipeline.py`, `tests/pipeline/`, `tests/feeds/test_feeds.py`(`match=` 한 줄만)
+  - 상태 메모(planner, 사이클 21): generator가 완료를 보고했다(258 passed, 변이 7종 확인). 코드에서 `CollectResult`, 검증 순서, 빈 메시지 대체, 경고 로그, stable 내림차순 정렬, `mark_initial_fetch_done`을 확인했다. 직전 REVIEW.md는 T7 평가라 T7b 전용 평가가 없다. 다음 evaluator가 T8 평가 때 T7b acceptance(변이 7종 포함)와 `tests/pipeline/` 회귀를 함께 확인한다. FAIL이면 다음 planner가 체크를 해제한다.
+
+- [x] T8. `extract.py` 본문 선택: `ContentExtractor` 프로토콜·`html_to_text`·`choose_body` (T7b 다음, 순수 함수, 새 의존성 없음, 스키마 불변)
+  - 내용 (PLAN M2 자체 결정 "본문 선택 규칙", "HTML 텍스트화")
+    - `src/rss_wiki/extract.py`를 만든다. 표준 라이브러리만 쓰고(`html.parser`, `dataclasses`, `typing.Protocol`, `re` 등) `rss_wiki` 내부 모듈을 import하지 않는다.
+    - `class ContentExtractor(Protocol)`: `def extract(self, url: str) -> str | None`. 원문 페이지를 가져와 평문 본문을 돌려준다. 가져오기나 추출이 실패하면 `None`을 돌려주고 예외를 던지지 않는다(PRD 7 "원문 본문 추출 실패는 실패로 치지 않음"). 이 계약을 독스트링에 적는다. 실제 구현은 T9다.
+    - `MIN_EXTRACTED_CHARS = 200` (모듈 상수, 설정 키는 만들지 않음)
+    - `html_to_text(html: str) -> str`: `html.parser.HTMLParser` 하위 클래스로 태그를 없앤다. 문자 참조(`&amp;`, `&#xAC00;`)를 풀고 `script`·`style` 안 내용은 버린다. 블록 요소(`p`, `div`, `br`, `li`, `ul`, `ol`, `h1`~`h6`, `tr`, `td`, `th`, `blockquote`, `pre`, `section`, `article`, `hr`)의 시작·끝 태그 경계에는 공백을 넣고, 인라인 요소(`b`, `a`, `span` 등)에는 넣지 않는다. 마지막에 연속 공백(줄바꿈·탭 포함)을 공백 하나로 합치고 앞뒤를 제거한다. 닫히지 않은 태그에서도 예외를 내지 않는다.
+    - `@dataclass(frozen=True) class Body`: `text: str`, `source: str`(`"extracted"` 또는 `"feed"`, DB `source` CHECK와 같은 값), `truncated: bool`
+    - `choose_body(extracted: str | None, content: str | None, summary: str | None, *, max_chars: int, min_chars: int = MIN_EXTRACTED_CHARS) -> Body | None`
+      - `max_chars < 1` 또는 `min_chars < 1`이면 다른 처리를 하기 전에 `ValueError`를 낸다.
+      - 순서: (1) `extracted.strip()`의 길이가 `min_chars` 이상이면 `extracted`. (2) `html_to_text(content)`가 비어 있지 않으면 `feed`. (3) `html_to_text(summary)`가 비어 있지 않으면 `feed`. (4) `extracted.strip()`이 비어 있지 않으면(짧아도) `extracted`. (5) 넷 다 아니면 `None`.
+      - `content`와 `summary`가 같은 값이어도 특별 처리하지 않는다. (2)에서 결정되고 `source`는 `feed`다(PLAN M2 자체 결정, T5 REVIEW 메모).
+      - 선택한 텍스트(추출 텍스트는 strip한 값)가 `max_chars`보다 길면 앞 `max_chars`자로 자르고 `truncated=True`, 아니면 그대로 두고 `False`.
+      - 독스트링에 선택 순서와 `Raises: ValueError`를 적는다.
+  - acceptance
+    - `uv run pytest -x tests/extract/` 통과. 최소 다음 경우를 포함(파라미터화 권장).
+      `html_to_text`: `"<p>a</p><p>b</p>"` → `"a b"` / `"<b>un</b>believable"` → `"unbelievable"` / `"a<br>b"` → `"a b"` / `"a&amp;b &#xAC00; &lt;x&gt;"` → `"a&b 가 <x>"` / `"<script>bad()</script>ok<style>.x{}</style>"` → `"ok"` / `"<SCRIPT>bad()</SCRIPT>ok"` → `"ok"` / `"  x \n\t y  "` → `"x y"` / `"<p>a<div>b"`(닫히지 않음) → `"a b"` / `""` → `""` / 한국어 `"<p>양자 컴퓨팅</p>"` → `"양자 컴퓨팅"`
+      / `choose_body`: 추출 텍스트가 정확히 200자 → `source == "extracted"`(경계) / 199자 + `content="<p>본문</p>"` → `Body("본문", "feed", False)`
+      / `extracted=None`, `content="<p> </p>"`, `summary="<i>요약</i>"` → `Body("요약", "feed", False)` / `content`가 `"<p>요약</p>"`이고 `summary=None`이면 `content`의 값
+      / `content == summary == "<p>같음</p>"` → `Body("같음", "feed", False)`
+      / `extracted="  짧음  "`, `content=None`, `summary=None` → `Body("짧음", "extracted", False)`
+      / 넷 다 비어 있음(`None`·`""`·`"  "`·`"<p></p>"` 조합) → `None`
+      / 자르기: 선택 텍스트 길이가 `max_chars`와 같으면 `truncated is False`이고 그대로다. `max_chars + 1`이면 길이가 `max_chars`이고 `truncated is True`. `feed` 출처에도 같은 결과(`content` 쪽 케이스 1건)
+      / `max_chars=0`·`min_chars=0` → `ValueError`(파라미터화). 입력이 모두 `None`이어도 `ValueError`(검증이 조기 반환보다 앞에 있음을 확인)
+      / `Body`가 frozen이다(대입 시 `FrozenInstanceError`)
+      / 프로토콜 적합성: 테스트 안의 가짜 extractor(url을 기록하고 정해진 값을 돌려줌)를 `ContentExtractor` 타입 변수에 대입하고 `extract` 호출 결과와 기록된 url을 확인한다
+      / `ast`로 `extract.py`의 import를 검사한다. 상대 import와 `rss_wiki`로 시작하는 import가 없어야 한다(`tests/feeds`의 `test_no_internal_imports`와 같은 방식)
+    - `uv run python -c "import rss_wiki.extract"` 종료 코드 0
+    - 변이 확인(IMPL.md에 결과 기록, 코드는 원복, 임시 복사본 방식): (1) 길이 판정 `>= min_chars` → `> min_chars` (2) `content`·`summary` 순서 교체 (3) 짧은 추출 텍스트로 대체하는 단계 제거 (4) `script`·`style` 내용 버리기 제거 (5) 블록 요소 경계 공백 제거 (6) 모든 태그 경계에 공백 삽입(인라인 포함) (7) 문자 참조 변환 무력화(`HTMLParser`면 `convert_charrefs=False`) (8) 자르기 제거 (9) 피드 경로의 `source`를 `"extracted"`로 — 아홉 경우 모두 테스트 하나 이상 실패해야 한다. 모두 동작을 바꾸는 변이다(PLAN "acceptance 작성 규칙"). 구현 방식 때문에 어떤 변이가 동치가 되면 IMPL.md에 이유를 적는다.
+    - `uv run pytest` 전체 통과(T7b 이후 258개 회귀 없음). 새 의존성 없음(`pyproject.toml`/`uv.lock` 변경 없음). `db.py`·`repo.py`·`feeds.py`·`pipeline.py` 변경 없음
+  - touch: `src/rss_wiki/extract.py`, `tests/extract/`
+  - 상태 메모(planner, 사이클 22): 사이클 21 evaluator PASS 11/12(`tests/extract` 32 passed, 전체 290 passed, acceptance 변이 9종 잡힘). 감점 사유(IMPL 자체 결정 2건과 단어 중간 인라인 태그가 테스트로 고정되지 않음, (6) 동치 서술 오류)와 HTML5 블록 요소 메모는 T8r로 넘겼다.
+
+- [x] T8r. `html_to_text` 테스트 고정과 블록·버리기 목록 확장 (T8 REVIEW 메모 해소, 10분 크기의 작은 항목, T9a보다 먼저, 새 의존성 없음)
+  - 내용 (PLAN M2 자체 결정 "HTML 텍스트화 블록·버리기 목록 확장")
+    - `src/rss_wiki/extract.py`
+      - `_BLOCK_TAGS`에 `dl`, `dt`, `dd`, `table`, `thead`, `tbody`, `tfoot`, `caption`, `figure`, `figcaption`, `header`, `footer`, `nav`, `main`, `aside`, `details`, `summary`, `address`를 더한다.
+      - `_SKIP_TAGS`에 `title`, `noscript`, `template`을 더한다.
+      - `html_to_text` 독스트링의 "script/style 내용은 버린다"를 버리는 태그 전체가 드러나게 고친다. 그 밖의 로직(`handle_*`, `choose_body`)은 바꾸지 않는다.
+    - `tests/extract/test_extract.py`의 `test_html_to_text` 파라미터에 추가한다(괄호는 그 케이스가 잡는 변이).
+      - `"a<br/>b"` → `"a b"` (startendtag 블록 공백 제거, `extract.py:48-50`)
+      - `"a</script>b"` → `"ab"` (짝 없는 끝 태그의 깊이 방어 제거, `:54-55`)
+      - `"a<b>c</b>d"` → `"acd"`, `"Py<span>thon</span>"` → `"Python"` (시작 태그만 모든 태그 경계에 공백 삽입)
+      - `"<dl><dt>a</dt><dd>b</dd></dl>"` → `"a b"`, `"<figure>a<figcaption>b</figcaption></figure>"` → `"a b"`, `"<header>a</header><footer>b</footer>"` → `"a b"`, `"<table><tr><td>a</td></tr></table><p>b</p>"` → `"a b"`
+      - `"<title>t</title>ok"` → `"ok"`, `"<noscript>n</noscript>ok"` → `"ok"`, `"<template><p>x</p></template>ok"` → `"ok"`
+    - (선택 메모 반영) `test_all_empty_is_none`을 `extracted`·`content`·`summary` 세 축 모두 `None`·`""`·`"  "`·`"<p></p>"`(추출 축은 `"<p></p>"` 대신 `"\n\t"`)로 파라미터화한다. 조합 전체(64건)를 써도 되고, 각 축을 4값으로 돌리고 나머지 축을 `None`으로 둔 12건 이상이어도 된다.
+  - acceptance
+    - `uv run pytest -x tests/extract/` 통과, 위 경우가 모두 테스트로 존재
+    - 변이 확인(IMPL.md에 결과 기록, 코드는 원복, 임시 복사본 방식): (1) `handle_startendtag`의 블록 공백 추가 제거 (2) `handle_endtag`의 `if self._skip:` 검사 제거(무조건 `-= 1`) (3) `handle_starttag`의 `elif tag in _BLOCK_TAGS`를 `else`로(시작 태그만 모든 태그에 공백) (4) `_BLOCK_TAGS`에서 `dt`·`dd` 제거 (5) `_SKIP_TAGS`에서 `noscript` 제거 — 다섯 경우 모두 테스트 하나 이상 실패. 모두 동작을 바꾸는 변이다.
+    - IMPL.md에 T8 IMPL의 "(6) 시작 태그만 바꾸면 동치" 서술이 틀렸음을 바로잡는 한 줄을 적는다(`a<b>c</b>`가 `a c`가 됨).
+    - `uv run pytest` 전체 통과(T8 이후 290개 회귀 없음), 새 의존성 없음(`pyproject.toml`/`uv.lock` 변경 없음), `extract.py` 외 src 변경 없음
+  - touch: `src/rss_wiki/extract.py`, `tests/extract/test_extract.py`
+  - 상태 메모(planner, 사이클 23): 사이클 22 evaluator PASS 11/12(`tests/extract` 98 passed, 전체 356 passed, acceptance 변이 5종 잡힘). 감점 사유(새 블록 태그 대부분이 개별 테스트로 고정되지 않음, 추가 변이 5종 생존)와 버리기 깊이 카운터 메모는 T8s로 넘겼다.
+
+- [x] T8s. `html_to_text` 태그 목록 개별 고정과 버리기 깊이의 태그별 분리 (T8r REVIEW 메모 해소, 10분 크기의 작은 항목, T9a보다 먼저, 새 의존성 없음)
+  - 내용 (PLAN M2 자체 결정 "버리기 깊이 태그별 분리")
+    - `tests/extract/test_extract.py`
+      - 기대 목록을 테스트 안에 **리터럴로** 적는다(`extract._BLOCK_TAGS`를 읽어서 만들지 않는다. 목록에서 원소를 빼는 변이를 잡기 위함). 블록 태그 38개: `p div br li ul ol h1 h2 h3 h4 h5 h6 tr td th blockquote pre section article hr dl dt dd table thead tbody tfoot caption figure figcaption header footer nav main aside details summary address`. 버리는 태그 5개: `script style title noscript template`.
+      - `@pytest.mark.parametrize("tag", 블록 태그 리터럴에서 br·hr 뺀 36개)`: `html_to_text(f"a<{tag}>b</{tag}>c") == "a b c"`.
+      - void 태그 `br`·`hr`: `"a<br>b"`·`"a<hr>b"`·`"a<hr/>b"` → `"a b"`.
+      - `@pytest.mark.parametrize("tag", 버리는 태그 리터럴 5개)`: `html_to_text(f"a<{tag}>x</{tag}>ok") == "aok"`.
+      - 리터럴 목록과 모듈 상수가 같음을 확인하는 테스트 1건(`set(BLOCK_LITERAL) == extract._BLOCK_TAGS`, `set(SKIP_LITERAL) == extract._SKIP_TAGS`). 목록에 태그를 더할 때 테스트도 함께 고치게 하기 위함이다.
+      - 태그별 깊이: `"<noscript>a</script>b</noscript>ok"` → `"ok"`, `"<noscript><noscript>x</noscript>y</noscript>ok"` → `"ok"`, `"<template>a</noscript>b</template>ok"` → `"ok"`, 짝 없는 끝 태그 뒤 정상 쌍 `"a</script>b<script>x</script>c"` → `"abc"`(깊이가 음수로 내려가지 않음). 기존 `"a</script>b"` → `"ab"` 케이스는 그대로 둔다.
+    - `src/rss_wiki/extract.py`
+      - `_TextParser`의 단일 정수 `_skip`을 태그별 깊이 `dict[str, int]`(또는 `collections.Counter`)로 바꾼다. 시작 태그는 그 태그의 깊이를 +1, 끝 태그는 **같은 태그의 깊이가 0보다 클 때만** -1. `handle_data`는 어느 태그든 깊이가 0보다 크면 버린다. `_BLOCK_TAGS`·`_SKIP_TAGS` 내용과 그 밖의 로직(`handle_startendtag`, 블록 공백, `choose_body`)은 바꾸지 않는다.
+  - acceptance
+    - `uv run pytest -x tests/extract/` 통과, 위 경우가 모두 테스트로 존재
+    - 변이 확인(IMPL.md에 결과 기록, 코드는 원복, 임시 복사본 방식): (1) `_BLOCK_TAGS`에서 `header`만 제거 (2) `dd`만 제거 (3) `nav` 제거 (4) `hr` 제거 (5) `_SKIP_TAGS`에서 `template` 제거 (6) 태그별 깊이를 단일 카운터로 되돌림(끝 태그는 버리는 태그 아무것이나 -1) (7) 끝 태그에서 "같은 태그 깊이 > 0" 검사 제거(음수 허용) — 일곱 경우 모두 테스트 하나 이상 실패. 모두 동작을 바꾸는 변이다(PLAN "acceptance 작성 규칙").
+    - `uv run pytest` 전체 통과(T8r 이후 356개 회귀 없음), 새 의존성 없음(`pyproject.toml`/`uv.lock` 변경 없음), `extract.py` 외 src 변경 없음, `test_no_internal_imports` 유지
+  - touch: `src/rss_wiki/extract.py`, `tests/extract/test_extract.py`
+
+- [ ] T9a. HTTP 공통 기반: 응답 크기 상한과 호스트별 요청 간격 (`feeds.py`, T8s 다음, 새 의존성 없음, 스키마 불변)
+  - 내용 (PLAN M2 자체 결정 "응답 크기 상한", "원문 추출기 HTTP 주입")
+    - `src/rss_wiki/feeds.py`
+      - `MAX_RESPONSE_BYTES = 10 * 1024 * 1024` 모듈 상수.
+      - `urllib_get(url, headers, timeout, *, max_bytes: int = MAX_RESPONSE_BYTES)`: `resp.read()`를 `resp.read(max_bytes + 1)`로 바꾼다. 읽은 길이가 `max_bytes`보다 크면 url과 `max_bytes`를 담은 `FeedFetchError`를 낸다. 이 예외는 기존 예외 매핑(`OSError` 등)에 다시 감싸이지 않게 한다(메시지가 그대로 보여야 함). `max_bytes < 1`이면 요청 전에 `ValueError`. 독스트링 `Raises:`에 "응답 크기 상한 초과"를 더한다. `HttpGet` 타입 별칭(위치 인자 3개)은 바꾸지 않는다.
+      - `throttle_by_host(http_get: HttpGet, *, min_interval: float = 1.0, clock: Callable[[], float] = time.monotonic, sleep: Callable[[float], None] = time.sleep) -> HttpGet`: `HttpGet`을 감싼 함수를 돌려준다. 감싼 함수는 `urllib.parse.urlsplit(url).hostname`(소문자, 없거나 `ValueError`면 기다리지 않고 바로 위임)을 키로 직전 요청 시작 시각을 기억한다. `clock()`으로 잰 경과가 `min_interval`보다 작으면 `sleep(남은 시간)` 뒤 위임한다. 기록 시각은 `sleep` 뒤 위임 직전의 `clock()` 값이다. 안쪽 `http_get`이 예외를 내도 시각은 기록한다(실패한 요청도 호스트에는 요청이 간 것). `min_interval < 0`이면 `ValueError`, `0`이면 기다리지 않는다. 다른 호스트끼리는 서로 기다리지 않는다.
+    - `tests/feeds/test_feeds.py`
+      - 기존 가짜 `urlopen` 응답 객체의 `read`가 크기 인자(`read(n=-1)`)를 받도록 고친다.
+      - 크기 상한: 가짜 `urlopen` 본문을 `max_bytes`와 같은 길이로 주면 정상(`body` 길이 일치), `max_bytes + 1`이면 `FeedFetchError`(메시지에 url, `__cause__`가 `OSError` 계열이 아님). 작은 `max_bytes`(예: 10)로 테스트한다. `read`가 받은 인자가 `max_bytes + 1`인지 기록해 단언한다. `max_bytes=0` → `ValueError`이고 가짜 `urlopen` 호출 0회.
+      - 간격(가짜 `clock`은 리스트에서 값을 꺼내거나 변수로 조작, 가짜 `sleep`은 받은 값을 기록하고 가짜 시계를 그만큼 전진): 같은 호스트에 연달아 2회 → 두 번째 전에 `sleep(≈min_interval)` 1회(`pytest.approx`) / 경과가 `min_interval` 이상이면 `sleep` 0회 / 다른 호스트(`a.com`, `b.com`) 교대 → `sleep` 0회 / 호스트 대소문자(`A.com`과 `a.com`)는 같은 호스트 / 안쪽이 `FeedFetchError`를 낸 뒤 같은 호스트 재요청 → `sleep` 1회, 예외는 그대로 전파 / 호스트 없는 url(`"not a url"`)·`urlsplit`이 거부하는 url(`"http://[::1"`) → `sleep` 0회, 안쪽에 그대로 위임 / 감싼 함수가 url·headers·timeout을 그대로 넘기고 안쪽 반환값을 그대로 돌려줌 / `min_interval=-1` → `ValueError`, `min_interval=0` → `sleep` 0회
+      - `throttle_by_host(...)`의 반환값을 `HttpFeedFetcher(timeout=1, http_get=...)`에 넣어 `fetch`가 동작함(조합 확인 1건)
+  - acceptance
+    - `uv run pytest -x tests/feeds/` 통과, 위 경우가 모두 테스트로 존재
+    - 변이 확인(IMPL.md에 결과 기록, 코드는 원복, 임시 복사본 방식): (1) 상한 판정 `>`를 `>=`로 (2) `read(max_bytes + 1)`을 `read()`로(상한 검사는 유지) — 기록된 `read` 인자로 잡혀야 함 (3) 상한 초과 `FeedFetchError`를 `OSError`로 바꿈(매핑에 다시 감싸져 메시지·`__cause__`가 바뀜) (4) 간격 키를 호스트 대신 전체 url로 (5) 호스트 소문자화 제거 (6) 예외 시 시각 기록 생략 (7) `sleep(남은 시간)`을 `sleep(min_interval)`로 — 일곱 경우 모두 테스트 하나 이상 실패. (7)이 잡히도록 경과 시간이 0이 아닌 케이스(예: `min_interval=1.0`, 경과 0.4 → `sleep(0.6)`)를 넣는다.
+    - `uv run pytest` 전체 통과(T8s 이후 회귀 없음), 새 의존성 없음(`pyproject.toml`/`uv.lock` 변경 없음), `feeds.py` 외 src 변경 없음, `test_no_internal_imports` 유지
+  - touch: `src/rss_wiki/feeds.py`, `tests/feeds/test_feeds.py`
+
+- [ ] T9b. 실제 원문 추출기 `HttpContentExtractor` (`extract.py`, T9a 다음, trafilatura 도입 검토) — 세부 acceptance는 T9a 평가 후 planner가 상세화한다.
+  - 개요: `HttpContentExtractor(*, http_get, timeout, user_agent="rss-wiki/0.1", html_extract=기본 trafilatura)`. `extract(url)`은 `http_get`으로 받은 2xx·`text/html` 본문을 디코딩(`Content-Type` charset → UTF-8 → `errors="replace"`)해 추출하고, 실패·비2xx·`http_get`이 낸 예외(`extract.py`는 `feeds`를 import하지 않으므로 `Exception`으로 잡는다)·추출 예외는 모두 `None`(예외 없음, `ContentExtractor` 계약). `extract.py`는 내부 모듈을 계속 import하지 않는다(PLAN M2 "원문 추출기 HTTP 주입"). trafilatura가 3.15/Windows에서 설치·import되지 않으면 의존성을 추가하지 않고 `html_to_text` 기반 대체로 구현한다.
+  - touch(예정): `src/rss_wiki/extract.py`, `tests/extract/`, `pyproject.toml`, `uv.lock`

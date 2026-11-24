@@ -1,22 +1,18 @@
 # IMPL
 
 ## 처리한 항목
-T7b. 피드 1개 수집 `collect_feed` (`pipeline.py` 신규)
+T8s. `html_to_text` 태그 목록 개별 고정과 버리기 깊이의 태그별 분리
 
 ## 변경 파일
-- `src/rss_wiki/pipeline.py` (신규: `CollectResult`, `collect_feed`; `feeds`·`repo`만 import)
-- `tests/pipeline/test_collect.py` (신규, 12건)
-- `tests/feeds/test_feeds.py` (`test_fetch_bool_status_rejected`에 `match="잘못된 HTTP 상태"` 한 줄)
+- `src/rss_wiki/extract.py`: `_TextParser._skip`을 단일 정수에서 태그별 깊이 `dict[str, int]`로 변경. 시작 태그는 해당 태그 +1, 끝 태그는 같은 태그 깊이가 0보다 클 때만 -1, `handle_data`는 어느 태그든 깊이가 0보다 크면 버림.
+- `tests/extract/test_extract.py`: 리터럴 블록 태그 38개·버리는 태그 5개 목록, 블록 태그 36종 파라미터화, void 태그(`br`/`hr`/`hr/`) 3건, 버리는 태그 5종, 리터럴↔모듈 상수 일치 테스트, 태그별 깊이 5건 추가.
 
 ## 검증
-- `uv run pytest -x tests/pipeline/test_collect.py tests/feeds/` 93 passed
-- `uv run pytest` 전체 258 passed (회귀 없음), `db.py`·`repo.py`·`feeds.py` 변경 없음, 새 의존성 없음
-- 변이 확인(임시 수정 후 원복), 모두 테스트 실패로 잡힘:
-  (1) 정렬 오름차순 2 failed / (2) 첫 수집 항상 취급 1 failed / (3) `record_feed_failure` 생략 3 failed
-  (4) `mark_initial_fetch_done` 생략 2 failed / (5) 경고 로그 제거 1 failed / (6) 빈 메시지 대체 제거 1 failed
-  (7) `feeds.py`의 bool status 검사 제거 1 failed (match 고정 덕에 잡힘)
+- `uv run pytest -x tests/extract/` 148 passed
+- `uv run pytest` 전체 406 passed (기존 356 회귀 없음), 새 의존성 없음, `extract.py` 외 src 변경 없음
+- 변이 확인(임시 복사본 + `PYTHONPATH`, 코드 원복 불필요), 7종 모두 테스트 실패로 잡힘:
+  (1) header 제거 / (2) dd 제거 / (3) nav 제거 / (4) hr 제거 / (5) `_SKIP_TAGS`에서 template 제거 /
+  (6) 단일 카운터로 복귀 / (7) 끝 태그의 "깊이 > 0" 검사 제거
 
 ## 참고
-- 자체 결정: `published`는 ISO8601 문자열이라 사전식 비교로 정렬(`None`은 `""`로 가장 오래됨, stable 정렬로 동률은 피드 순서 유지).
-- 자체 결정: `result.not_modified` 이거나 `feed is None`이면 not_modified 경로로 처리.
-- 새 의존성 없음.
+- 결정: 깊이 판정은 `any(self._skip.values())`로 한다(가장 단순).
