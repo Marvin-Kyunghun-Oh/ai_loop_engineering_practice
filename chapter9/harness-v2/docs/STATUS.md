@@ -9,14 +9,13 @@
 - 사용자와 결정 0001~0010을 합의했다. 지금 사용자가 정할 결정은 남아 있지 않다.
 - 위 문서와 인수인계 문서(`CLAUDE.md`, 이 파일)를 `feat/chap9-harness-v2` 브랜치에 커밋하고 푸시했다.
 
+- CLI 결과 JSON 필드를 확인했다(haiku로 3회 실행, 약 $0.007).
+  - 샘플은 `src/test/resources/claude-result/`에 있다(`success`, `error-max-budget-usd`, `error-max-turns`).
+  - 필드 표는 `IMPROVEMENTS.md` A2에 있다.
+  - 핵심은 세 가지다. 판정은 종료 코드가 아니라 `subtype`으로 한다. 오류 시 `result`는 `null`이다. 예산 상한은 턴 1회분을 넘긴 뒤 멈춘다.
+
 ## 다음 할 일 (순서대로)
-1. **CLI 결과 JSON 필드 확인**
-   - 짧은 `claude -p` 실행 2~3번이면 된다. 사용량이 아주 적게 들지만, 실행 전에 사용자에게 알린다.
-     - `claude -p "hi" --output-format json`: 정상 종료 시 필드 구조(비용, 토큰, 오류, 종료 사유)
-     - `--max-budget-usd 0.01`: 예산 상한에 걸렸을 때의 종료 사유와 종료 코드
-   - 출력은 JUnit 테스트용 샘플(`src/test/resources/claude-result-*.json`)로 보관한다.
-   - 결과를 `IMPROVEMENTS.md` 6절과 0007에 반영한다.
-2. **v2 설계 문서 `docs/DESIGN.md` 작성**
+1. **v2 설계 문서 `docs/DESIGN.md` 작성**
    - 클래스 구조: 설정 로더, `claude` 실행기 인터페이스와 가짜 구현, 비용 기록·상한, 결정 합의 상태 기계, 문서 아카이브, JOURNAL 기록, 메인 루프
    - `harness.yml` 스키마: models, limits, commands, permissions
    - 프롬프트 템플릿 변수 이름과 치환 방식. 예: `{{commands.test}}`
@@ -26,13 +25,13 @@
      - `docs/CURRENT`(IMPROVEMENTS D5)
      - `USAGE.csv` 열(0007)
      - JOURNAL 줄(0009)
-3. **프롬프트 수정**
-   - v1 프롬프트를 v2로 복사한 뒤 고친다. 템플릿 변수와 형식이 2번에서 정해진 뒤에 한다.
+2. **프롬프트 수정**
+   - v1 프롬프트를 v2로 복사한 뒤 고친다. 템플릿 변수와 형식이 1번에서 정해진 뒤에 한다.
    - 변경 목록은 아래 "프롬프트 변경 목록"을 따른다.
-4. **Gradle 골격과 구현**
+3. **Gradle 골격과 구현**
    - 순서는 v1 동작 포팅 → 개선 항목(IMPROVEMENTS 4절 우선순위)이다.
-   - JUnit 테스트를 함께 작성한다.
-5. **첫 실행**
+   - JUnit 테스트를 함께 작성한다. 결과 JSON 파싱 테스트는 `src/test/resources/claude-result/` 샘플을 쓴다.
+4. **첫 실행**
    - 대상 프로젝트가 정해지면 `max_total_usd: 10`으로 돌린다.
    - 크레딧 감소량과 `USAGE.csv` 합계를 비교해 상한을 보정한다(0007).
 
@@ -60,7 +59,9 @@
 줄 번호는 v1 파일(`chapter9/harness/src/harness/prompts/`) 기준이다.
 
 ## 미확인 항목
-`IMPROVEMENTS.md` 6절을 본다. 대부분 다음 할 일 1번에서 확인된다.
+`IMPROVEMENTS.md` 6절을 본다. 남은 것은 두 가지다.
+- 사용량 한도 도달 시 출력 형태: 재현할 수 없어서, 처음 발생할 때 확인한다.
+- 첫 실행 보정
 
 ## 아직 정하지 않은 것
 - 첫 대상 프로젝트(0004). 하네스는 특정 프로젝트를 가정하지 않고 `harness.yml`로 분리한다.

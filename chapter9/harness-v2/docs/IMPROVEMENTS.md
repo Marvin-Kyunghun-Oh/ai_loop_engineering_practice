@@ -39,7 +39,7 @@ v2의 목표는 **Java 개발자가 읽고 고칠 수 있는 하네스**다. 기
 #### A2. 비용 기록과 금액 상한이 없음 — H
 - **근거**: `run.py:91-105`의 `run_agent`는 `claude -p`를 실행하고 종료 코드만 로그로 남긴다. `run.py:36`의 `MAX_ITERATIONS`(기본 50)는 한 번 실행하는 사이클 횟수 제한일 뿐, 누적 한도나 금액 한도가 아니다. 진행 중에 남은 예산을 계산할 수 없었다.
 - **기준: CLI가 보고한 비용의 누적**
-  - 각 `claude -p` 실행의 결과 JSON에 들어 있는 비용 값(`total_cost_usd`, 필드명 확인 필요)을 하네스가 더해 상한을 판단한다.
+  - 각 `claude -p` 실행의 결과 JSON에 들어 있는 비용 값(`total_cost_usd`, 실제 출력으로 확인함)을 하네스가 더해 상한을 판단한다.
   - 이 값은 대화형 세션의 `/statusline`이 보여주는 cost와 같은 출처(세션별 환산 비용)다. statusline은 하네스의 하위 세션을 볼 수 없어서, 같은 값을 하네스가 직접 모은다.
   - 단가표를 하네스에 두고 토큰×단가로 계산하는 방식은 쓰지 않는다. 단가를 직접 관리해야 하고, 요금이 바뀌면 틀리기 때문이다.
 - **설정**
@@ -66,10 +66,14 @@ v2의 목표는 **Java 개발자가 읽고 고칠 수 있는 하네스**다. 기
   | 수준 | 비용을 아는 시점 | 넘칠 수 있는 크기 | 대책 |
   |---|---|---|---|
   | 하네스(누적 상한) | 에이전트 프로세스 종료 후 | 에이전트 1회분 (수 달러) | 1회 상한을 이용해 **실행 전에** 차단 |
-  | CLI(`--max-budget-usd`) | 턴과 턴 사이 (추정) | 마지막 턴 1회분 (수십 센트) | 여유분 $2로 흡수 |
+  | CLI(`--max-budget-usd`) | 턴과 턴 사이 (**확인함**) | 마지막 턴 1회분 (수십 센트) | 여유분 $2로 흡수 |
+
+  - 2026-11-24 확인: 상한 $0.001로 실행하자 2턴째에 멈췄고, 실제 비용은 $0.00196(상한의 약 2배)이었다. 상한을 넘긴 뒤에야 멈추며, 넘치는 크기는 턴 1회분이다.
+  - 따라서 실행 전 검사에서 쓰는 `max_agent_usd`는 "정확한 최대치"가 아니라 "턴 1회분이 더 붙을 수 있는 값"이다. 여유분 $2가 이 차이를 흡수한다. opus의 큰 컨텍스트 턴 1회는 대략 수십 센트~$1 수준으로 추정한다.
 
 - **한계: 표시 금액 ≠ 실제 크레딧 차감액**
   - 표시 금액은 API 요금으로 환산한 값이다. Pro 5시간 한도 안에서 쓴 사용량(크레딧이 빠지지 않음)도 세므로, 보통은 실제보다 **많게** 센다. 일찍 멈추는 쪽이라 안전하다.
+  - 결과 JSON의 `modelUsage.{모델}.costBasis`가 `"list"`로 나온다. 정가(API 요금표) 기준 환산이라는 뜻으로 보인다.
   - 한도 초과 후 크레딧이 같은 단가로 차감되는지는 확인하지 못했다.
   - **보정 절차**: 첫 실행은 `max_total_usd: 10`으로 돌린다. 끝나면 계정의 크레딧 감소량과 `USAGE.csv` 합계를 비교한다. 비슷하면 $38로 올리고, 차이가 크면 그 비율만큼 조정한다.
 - **토큰 기록 (분석용)**
@@ -78,9 +82,26 @@ v2의 목표는 **Java 개발자가 읽고 고칠 수 있는 하네스**다. 기
   ```
   cycle,agent,model,input,cache_creation,cache_read,output,turns,duration_sec,cost_usd,stop_reason
   ```
-- **확인 필요**
-  - 결과 JSON의 토큰 필드 구조(`usage.input_tokens`, `usage.cache_read_input_tokens` 등으로 알고 있음)와 비용 필드명(`total_cost_usd`)을 실제 출력으로 확인한다.
-  - `--max-budget-usd`에 걸렸을 때의 종료 사유와 종료 코드를 확인한다. `--max-budget-usd 0.01`로 짧게 돌려 보면 된다.
+- **결과 JSON 필드 (2026-11-24 실제 출력으로 확인)**
+  - 샘플: `src/test/resources/claude-result/`의 `success.json`, `error-max-budget-usd.json`, `error-max-turns.json`
+  - `session_id`, `uuid`, `credential_expires_at`는 `<redacted>`로 가렸다.
+
+  | 용도 | 필드 | 값의 예 |
+  |---|---|---|
+  | 비용 | `total_cost_usd` | `0.00271608` |
+  | 토큰 | `usage.input_tokens`, `usage.cache_creation_input_tokens`, `usage.cache_read_input_tokens`, `usage.output_tokens` | `2`, `12718`, `15028`, `44` |
+  | 모델별 | `modelUsage.{모델}.costUSD`, `costBasis` | `"claude-haiku-5-5"`, `"list"` |
+  | 오류 여부 | `is_error` | `false` / `true` |
+  | 종료 사유 | `subtype` | `success`, `error_max_budget_usd`, `error_max_turns` |
+  | 종료 사유(보조) | `terminal_reason` | `completed`, `budget_exhausted`, `max_turns` |
+  | 오류 메시지 | `errors` (배열, 오류일 때만) | `["Reached maximum budget ($0.001)"]` |
+  | API 오류 | `api_error_status` | `null` |
+  | 요약 | `result` | 성공 시 문자열, **오류 시 `null`** |
+  | 기타 | `num_turns`, `duration_ms`, `stop_reason` | `1`, `1126`, `end_turn` |
+
+  - **종료 코드로는 구분할 수 없다.** 예산 상한과 턴 상한 모두 종료 코드가 `1`이다. 판정은 `subtype`으로 한다.
+  - **오류 시 `result`가 `null`이다.** JOURNAL 요약(0009)은 `result`가 없으면 `errors[0]`을 대신 쓴다.
+  - 필드가 많고 버전마다 늘 수 있으므로, Jackson은 필요한 필드만 매핑하고 나머지는 무시한다(`@JsonIgnoreProperties(ignoreUnknown = true)`).
 - **Java 메모**: 결과 JSON은 Jackson으로 파싱한다(5절). 표준 출력이 JSON이 되므로 에이전트의 요약 출력은 결과 JSON의 `result` 필드에서 꺼내 콘솔에 출력한다. 필수 필드(비용, 오류, 종료 사유)가 없으면 0으로 넘어가지 말고 예외로 `HALT`한다. 필드명이 틀려 상한이 영원히 발동하지 않는 사고를 막기 위해서다.
 
 #### A3. 에이전트 1회 실행의 상한이 없음 — H
@@ -150,7 +171,9 @@ v2의 목표는 **Java 개발자가 읽고 고칠 수 있는 하네스**다. 기
 #### B1. `claude` 실패를 무시함 — H
 - **근거**: `run.py:103-105`는 종료 코드를 로그만 남기고 다음 에이전트로 넘어간다. 한도 초과·인증 오류·네트워크 오류가 나도 planner→generator→evaluator가 계속 실행되어, 빈 사이클이 돌거나 문서가 어긋난다. Pro 5시간 한도에 걸린 지금 상황에서 가장 아픈 결함이다.
 - **v2 제안**
-  - 종료 코드가 0이 아니거나 결과 JSON의 오류 표시(`is_error` 등, 필드명 확인 필요)가 있으면 그 사이클을 중단한다.
+  - 결과 JSON의 `is_error`가 `true`이면 그 사이클을 중단한다. 원인은 `subtype`으로 구분한다(A2의 필드 표). 종료 코드는 상한 도달과 오류가 모두 `1`이라 판정에 쓰지 않는다. 다만 JSON 자체가 없거나 파싱되지 않으면 오류로 본다.
+    - `error_max_budget_usd`, `error_max_turns`: 상한 도달(A3). 재시도하지 않고 다음 사이클로 넘어간다.
+    - 그 밖의 `error_*` 또는 `api_error_status`가 `null`이 아님: 실행 오류. 아래 규칙을 따른다.
   - 같은 오류가 연속 N회면 `HALT`에 오류 내용을 적는다.
   - 사용량 한도 오류는 재시도하지 않고 즉시 `HALT`한다.
   - `.cycle_count`는 사이클이 정상 완료된 경우에만 올린다.
@@ -278,8 +301,8 @@ v2의 목표는 **Java 개발자가 읽고 고칠 수 있는 하네스**다. 기
 - [x] `--output-format json`, `--disallowedTools`, `--fallback-model` 존재
 - [x] `--max-turns` 지원 (사용자 확인, help 출력에는 없음)
 - [x] 구독 플랜의 실제 청구액은 하네스에서 계산 불가 → CLI 보고 비용의 누적으로 상한 판단, 첫 실행에서 보정 (A2)
-- [ ] JSON 결과의 토큰·비용·오류·종료 사유 필드명 (`usage.*`, `total_cost_usd`, `is_error`, `num_turns`, `subtype` 등으로 알고 있음)
-- [ ] `--max-budget-usd` 도달 시 종료 사유·종료 코드 (`--max-budget-usd 0.01`로 확인, A2·A3)
-- [ ] `--max-turns` 도달 시 종료 사유 (선택 옵션을 켤 때만, A3)
-- [ ] 사용량 한도 도달 시 `claude -p`의 종료 코드와 오류 메시지 형태 (B1 판정 기준)
+- [x] JSON 결과의 토큰·비용·오류·종료 사유 필드명 (A2의 필드 표, 샘플은 `src/test/resources/claude-result/`)
+- [x] `--max-budget-usd` 도달 시: `subtype: error_max_budget_usd`, `is_error: true`, 종료 코드 `1`. 상한을 턴 1회분 넘긴 뒤 멈춤
+- [x] `--max-turns` 도달 시: `subtype: error_max_turns`, `is_error: true`, 종료 코드 `1`
+- [ ] 사용량 한도 도달 시 `claude -p`의 출력 형태 (B1 판정 기준). 일부러 재현할 수 없다. 처음 발생할 때 `logs/`의 원본(D2)으로 확인하고 샘플에 추가한다. 그 전까지는 "알 수 없는 `error_*`"로 처리한다
 - [ ] 첫 실행 보정: `max_total_usd: 10`으로 돌린 뒤 크레딧 감소량과 `USAGE.csv` 합계 비교 (A2)
