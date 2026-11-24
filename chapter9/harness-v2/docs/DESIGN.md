@@ -433,7 +433,7 @@ runAgent(role):
 7. `PromptRenderer`, `ToolPolicy`, 프롬프트 복사·수정(STATUS 2번)
 8. `DecisionResolver`
 9. `TaskArchiver`, `reviews.csv`
-10. 위험 명령 차단 훅 확인(C2)과 `Bootstrap`
+10. `Bootstrap`. 위험 명령 차단 훅(C2)은 보류한다(0014, 스모크 테스트 뒤에 다시 판단)
 11. 스모크 테스트(7.1): 샘플 프로젝트와 `smokeTest` 태스크를 만든다. 실행 전에 사용자에게 알리고, 결과로 비용 보정(0007)을 한다
 
 각 단계가 끝날 때마다 `./gradlew test`가 통과해야 한다. STATUS.md도 그때마다 갱신한다.
@@ -442,6 +442,6 @@ runAgent(role):
 - [x] `claude -p`가 표준 입력으로 프롬프트를 받는지 (5.2): 받는다
 - [x] `--disallowedTools Bash`와 `--allowedTools "Bash(./gradlew test:*)"`의 우선순위 (5.5): 금지가 이긴다
 - [x] 허용 패턴 문법 `Bash(명령:*)` (0008): 동작한다. 단, 읽기 전용 명령은 목록과 무관하게 통과한다
-- 위험 명령 차단 훅을 대상 프로젝트에 설치하는 방식 (C2). 하네스 시작 시 `.claude/settings.json`에 PreToolUse 훅이 있는지 검사할지, 아니면 하네스가 설정 파일을 넘길지 정해야 한다
+- 위험 명령 차단 훅 (C2): 보류(0014). 만든다면 하네스가 `--settings`로 넘기고, 사람의 규칙은 프로젝트 `.claude/settings.json`에 사람이 둔다
 - 대화형 부트스트랩 세션의 비용을 사후에 가져올 방법이 있는지 (4.5)
 - 스모크 테스트 샘플 프로젝트의 빌드·테스트 명령 구성 (7.1)

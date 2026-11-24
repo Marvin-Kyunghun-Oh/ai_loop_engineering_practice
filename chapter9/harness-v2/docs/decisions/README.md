@@ -21,5 +21,6 @@ harness-v2를 설계하며 사용자와 합의한 결정을 남긴다. 한 파�
 | [0011](0011-smoke-test.md) | 샘플 프로젝트로 실제 `claude` 스모크 테스트 | 확정 | 2026-11-24 |
 | [0012](0012-result-json-details.md) | 결과 JSON 형식 오류는 즉시 HALT, 토큰은 modelUsage 합산, 설정의 모르는 키는 거부 | 확정 | 2026-11-24 |
 | [0013](0013-defer-bash-allowlist-hook.md) | Bash 허용 목록 훅은 스모크 테스트 뒤로 미룬다 | 확정 | 2026-11-24 |
+| [0014](0014-defer-danger-hook.md) | 위험 명령 차단 훅(C2)은 스모크 테스트 뒤로 미룬다 | 확정 | 2026-11-24 |
 
 상세한 근거와 구현 메모는 [`../IMPROVEMENTS.md`](../IMPROVEMENTS.md)에 있다.
