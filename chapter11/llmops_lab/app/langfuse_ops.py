@@ -2,11 +2,24 @@
 # Langfuse(LLM 호출을 기록·관찰하는 서비스)로 trace를 보내는 코드 모음.
 # service.py가 이 파일의 함수들을 `with`로 감싸 쓰면, 실행 구간마다 시작·끝 시간이 자동 기록된다.
 #
+# ■ 이 버전의 핵심 변경 (이전 버전 = 로컬 파일 프롬프트, 커밋 158298f와 비교)
+#   - claude_generation에 선택 인자 `prompt`가 추가되었다.
+#     Langfuse에서 가져온 프롬프트 객체를 넘기면, 이 generation이 "어떤 프롬프트 버전으로 만든 호출인지"
+#     Langfuse에 연결(링크)된다. 안 넘기면(None) 이전처럼 프롬프트 연결 없이 기록된다.
+#   - get_client는 이제 trace 전송뿐 아니라 service.py의 프롬프트 조회(client.get_prompt)에도 쓰인다.
+#
 # ■ 이 파일의 함수들 (service.py에서 호출되는 순서)
+#   get_client           : Langfuse 클라이언트 (프롬프트 조회 + trace 전송 공용)
 #   support_ticket_trace : 티켓 1건 전체를 감싸는 가장 바깥 구간(root). 고객·태그 정보를 붙인다.
-#   claude_generation    : Claude 호출 구간 (generation 타입 = LLM 호출 전용)
+#   claude_generation    : Claude 호출 구간 (generation 타입 = LLM 호출 전용) + 프롬프트 버전 연결
 #   quality_evaluator    : 품질 평가 구간 (evaluator 타입)
 #   record_scores        : 평가 결과를 숫자 점수(score)로 기록
+#
+# ■ 프롬프트 연결이 이루어지는 과정
+#   service.py: prompt_obj = client.get_prompt(이름, label="production")
+#   service.py: claude_generation(rendered, model, prompt=prompt_obj)
+#   이 파일   : start_as_current_observation(..., prompt=prompt_obj)
+#   Langfuse  : generation ↔ 프롬프트(이름·버전) 연결 → 프롬프트 화면에서 버전별 호출·비용·지연 집계
 #
 # ■ @contextmanager란?
 #   함수를 `with 함수():` 형태로 쓸 수 있게 해 주는 도구다.
@@ -22,11 +35,13 @@ from .prompting import SupportTicket
 from .claude_runner import ClaudeResult
 from .evaluator import EvalResult
 
-_client = None
+_client = None  # 만들어진 Langfuse 클라이언트 보관용. 처음엔 None, 첫 호출 때 채워진다.
+
 
 # 1. 랭퓨즈 클라이언트는 하나만 만들어 재사용
 #    매번 새로 만들면 연결이 낭비되므로, 처음 한 번만 만들고 `_client`에 보관한다.
 #    접속 정보(키·주소)는 코드에 쓰지 않고 .env의 환경변수에서 읽는다.
+#    프롬프트 조회(get_prompt)도 이 클라이언트로 하므로 같은 접속 정보가 쓰인다.
 def get_client() -> Langfuse:
     """Langfuse 클라이언트를 반환한다. 없으면 환경변수로 한 번만 생성한다."""
     global _client
@@ -78,20 +93,33 @@ def support_ticket_trace(ticket: SupportTicket):
 
 
 @contextmanager
-def claude_generation(prompt: str, model: str):
-    """Claude 호출을 감싸는 generation span. 컨텍스트 안의 실제 호출 시간이 기록된다."""
+def claude_generation(prompt_text: str, model: str, prompt=None):
+    """Claude 호출을 감싸는 generation span. 컨텍스트 안의 실제 호출 시간이 기록된다.
+
+    prompt_text는 Claude에 보낼 완성 문장, prompt는 Langfuse 프롬프트 객체(선택, 버전 연결용).
+    """
     client = get_client()
 
     # 5. LLM 호출은 generation 타입으로 연다.
     #    generation으로 열어야 Langfuse가 모델·토큰·비용을 LLM 호출로 인식해 따로 집계한다.
     #    model·input에는 호출 시점에 알고 있는 값(모델명, 프롬프트)을 넣는다.
     #    답변·토큰·비용은 호출이 끝난 뒤 service.py의 gen.update에서 채운다.
-    with client.start_as_current_observation(
-        name="claude-p-answer",
-        as_type="generation",
-        model=model,
-        input=prompt,
-    ) as gen:
+    #    - prompt_text : 변수가 채워진 "완성된" 문장 (input에 기록됨)
+    #    - prompt      : Langfuse 프롬프트 "객체" (버전 연결용). 둘은 서로 다른 것이다.
+    kwargs = {
+        "name": "claude-p-answer",
+        "as_type": "generation",
+        "model": model,
+        "input": prompt_text,
+    }
+
+    # 6. 프롬프트 객체가 있을 때만 연결
+    #    prompt 키를 항상 넘기지 않고 조건부로 넣는 이유: None을 그대로 넘기면 SDK가 "프롬프트 없음"으로
+    #    처리하는 방식에 의존하게 되므로, 값이 있을 때만 키를 추가해 이전 동작과 동일하게 유지한다.
+    if prompt is not None:
+        kwargs["prompt"] = prompt
+
+    with client.start_as_current_observation(**kwargs) as gen:
         yield gen
 
 
@@ -100,7 +128,7 @@ def quality_evaluator(required_keywords: list[str]):
     """평가 단계를 감싸는 evaluator span."""
     client = get_client()
 
-    # 6. 평가 단계는 evaluator 타입으로 연다.
+    # 7. 평가 단계는 evaluator 타입으로 연다.
     #    평가 구간임을 화면에서 구분해 보려는 용도다.
     with client.start_as_current_observation(
         name="quality-check",
@@ -116,7 +144,7 @@ def record_scores(
     eval_result: EvalResult,
 ):
     """trace 단위 score 4종을 기록한다."""
-    # 7. 비교 근거가 될 점수들 (점수 4개)
+    # 8. 비교 근거가 될 점수들 (점수 4개)
     #    score는 숫자여야 하므로, True/False는 1.0/0.0으로 바꿔서 보낸다.
     #    - keyword_coverage   : 필수 키워드 포함 비율 (0~1)
     #    - format_ok          : 섹션 형식 통과 여부 (1/0)
