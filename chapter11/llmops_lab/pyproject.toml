@@ -27,3 +27,8 @@ build-backend = "uv_build"
 dev = [
     "pytest>=9.2.0",
 ]
+
+[tool.pytest.ini_options]
+markers = [
+    "integration: 실제 claude CLI를 호출하는 통합 테스트 (비용 발생)",
+]
